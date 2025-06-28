@@ -30,19 +30,29 @@ func main() {
 
 	// Start race
 	fmt.Println("\n🚗 Starting race with libdrag...")
-	if err := libdragAPI.StartRace(); err != nil {
+	raceID, err := libdragAPI.StartRaceWithID()
+	if err != nil {
 		fmt.Printf("❌ Failed to start race: %v\n", err)
 		return
 	}
+
+	fmt.Printf("🏁 Race started with ID: %s\n", raceID)
 
 	// Monitor race progress
 	fmt.Println("🔄 Monitoring race progress...")
 
 	// Wait for race to complete
 	for i := 0; i < 100; i++ { // Max 10 seconds
-		if libdragAPI.IsRaceComplete() {
+		if libdragAPI.IsRaceCompleteByID(raceID) {
 			break
 		}
+
+		// Show status updates
+		if i%10 == 0 {
+			status := libdragAPI.GetRaceStatusJSONByID(raceID)
+			fmt.Printf("📊 Race Status: %s\n", status)
+		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -50,16 +60,17 @@ func main() {
 	fmt.Println("\n🏆 LIBDRAG FINAL RESULTS")
 	fmt.Println("========================")
 
-	resultsJSON := libdragAPI.GetResultsJSON()
+	resultsJSON := libdragAPI.GetResultsJSONByID(raceID)
 	fmt.Printf("Results JSON:\n%s\n", resultsJSON)
 
-	treeStatusJSON := libdragAPI.GetTreeStatusJSON()
-	fmt.Printf("\nChristmas Tree Status JSON:\n%s\n", treeStatusJSON)
+	treeStatusJSON := libdragAPI.GetTreeStatusJSONByID(raceID)
+	fmt.Printf("\nTree Status JSON:\n%s\n", treeStatusJSON)
 
 	// Clean shutdown
-	fmt.Println("🛑 Shutting down libdrag system...")
-	libdragAPI.Stop()
-
-	fmt.Println("✨ libdrag demo completed successfully!")
-	fmt.Printf("📚 Version: %s\n", api.Version())
+	fmt.Println("\n🔧 Shutting down libdrag system...")
+	if err := libdragAPI.Stop(); err != nil {
+		fmt.Printf("❌ Failed to shutdown cleanly: %v\n", err)
+	} else {
+		fmt.Println("✅ libdrag system shutdown complete")
+	}
 }

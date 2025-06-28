@@ -59,52 +59,96 @@ type SafetyConfig struct {
 
 // DefaultConfig implements Config interface
 type DefaultConfig struct {
-	track  TrackConfig
-	timing TimingConfig
-	tree   TreeSequenceConfig
-	safety SafetyConfig
+	Track  TrackConfig        `json:"track"`
+	Timing TimingConfig       `json:"timing"`
+	Tree   TreeSequenceConfig `json:"tree"`
+	Safety SafetyConfig       `json:"safety"`
 }
 
+func (c *DefaultConfig) GetTrackConfig() TrackConfig {
+	return c.Track
+}
+
+func (c *DefaultConfig) GetTimingConfig() TimingConfig {
+	return c.Timing
+}
+
+func (c *DefaultConfig) GetTreeConfig() TreeSequenceConfig {
+	return c.Tree
+}
+
+func (c *DefaultConfig) GetSafetyConfig() SafetyConfig {
+	return c.Safety
+}
+
+// NewDefaultConfig creates a default configuration for NHRA-style drag racing
 func NewDefaultConfig() *DefaultConfig {
 	return &DefaultConfig{
-		track: TrackConfig{
-			Length:    1320, // Quarter mile
+		Track: TrackConfig{
+			Length:    1320, // Quarter mile in feet
 			LaneCount: 2,
-			LaneWidth: 12,
+			LaneWidth: 12, // 12 feet per lane
 			BeamLayout: map[string]BeamConfig{
-				"pre_stage_L":    {Name: "Pre-Stage Left", Position: -0.583, Lane: 1},
-				"stage_L":        {Name: "Stage Left", Position: 0, Lane: 1},
-				"sixty_foot_L":   {Name: "60-Foot Left", Position: 60, Lane: 1},
-				"eighth_mile_L":  {Name: "1/8 Mile Left", Position: 660, Lane: 1},
-				"quarter_mile_L": {Name: "1/4 Mile Left", Position: 1320, Lane: 1},
-				"pre_stage_R":    {Name: "Pre-Stage Right", Position: -0.583, Lane: 2},
-				"stage_R":        {Name: "Stage Right", Position: 0, Lane: 2},
-				"sixty_foot_R":   {Name: "60-Foot Right", Position: 60, Lane: 2},
-				"eighth_mile_R":  {Name: "1/8 Mile Right", Position: 660, Lane: 2},
-				"quarter_mile_R": {Name: "1/4 Mile Right", Position: 1320, Lane: 2},
+				"pre_stage": {
+					Name:     "Pre-Stage",
+					Position: -7, // 7 feet before starting line
+					Height:   8,  // 8 inches above track
+					Lane:     0,  // Both lanes
+				},
+				"stage": {
+					Name:     "Stage",
+					Position: 0, // Starting line
+					Height:   8, // 8 inches above track
+					Lane:     0, // Both lanes
+				},
+				"60_foot": {
+					Name:     "60 Foot",
+					Position: 60,
+					Height:   8,
+					Lane:     0,
+				},
+				"330_foot": {
+					Name:     "330 Foot",
+					Position: 330,
+					Height:   8,
+					Lane:     0,
+				},
+				"660_foot": {
+					Name:     "660 Foot (Eighth Mile)",
+					Position: 660,
+					Height:   8,
+					Lane:     0,
+				},
+				"1000_foot": {
+					Name:     "1000 Foot",
+					Position: 1000,
+					Height:   8,
+					Lane:     0,
+				},
+				"1320_foot": {
+					Name:     "1320 Foot (Quarter Mile)",
+					Position: 1320,
+					Height:   8,
+					Lane:     0,
+				},
 			},
 		},
-		timing: TimingConfig{
-			Precision:       time.Millisecond,
-			SpeedTrapLength: 66,
+		Timing: TimingConfig{
+			Precision:       time.Microsecond,
+			SpeedTrapLength: 66, // 66 feet for speed trap calculation
 			AutoStart:       true,
 		},
-		tree: TreeSequenceConfig{
-			Type:            TreeSequencePro,
-			AmberDelay:      500 * time.Millisecond,
-			GreenDelay:      400 * time.Millisecond,
+		Tree: TreeSequenceConfig{
+			Type:            TreeSequencePro,        // Default to Pro tree
+			AmberDelay:      500 * time.Millisecond, // 0.5 seconds for sportsman
+			GreenDelay:      400 * time.Millisecond, // 0.4 seconds for pro tree
 			PreStageTimeout: 30 * time.Second,
 			StageTimeout:    10 * time.Second,
 		},
-		safety: SafetyConfig{
+		Safety: SafetyConfig{
 			EmergencyStopEnabled: true,
 			MaxReactionTime:      2 * time.Second,
-			MinStagingTime:       100 * time.Millisecond,
+			MinStagingTime:       500 * time.Millisecond,
 		},
 	}
 }
-
-func (dc *DefaultConfig) GetTrackConfig() TrackConfig       { return dc.track }
-func (dc *DefaultConfig) GetTimingConfig() TimingConfig     { return dc.timing }
-func (dc *DefaultConfig) GetTreeConfig() TreeSequenceConfig { return dc.tree }
-func (dc *DefaultConfig) GetSafetyConfig() SafetyConfig     { return dc.safety }
