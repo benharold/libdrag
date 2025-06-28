@@ -7,14 +7,9 @@ import (
 	"github.com/benharold/libdrag/pkg/api"
 )
 
-// NewLibDrag creates a new libdrag instance (for mobile bindings)
-func NewLibDrag() *api.LibDragAPI {
-	return api.NewLibDragAPI()
-}
-
 func main() {
-	fmt.Println("🏁 LIBDRAG - DRAG RACING LIBRARY")
-	fmt.Println("=================================")
+	fmt.Println("🏁 LIBDRAG - DRAG RACING LIBRARY DEMONSTRATION")
+	fmt.Println("===============================================")
 
 	// Create the libdrag API
 	libdragAPI := api.NewLibDragAPI()
@@ -61,5 +56,4 @@ func main() {
 	libdragAPI.Stop()
 
 	fmt.Println("✨ libdrag demo completed successfully!")
-	fmt.Printf("📚 Version: %s\n", api.Version())
 }
