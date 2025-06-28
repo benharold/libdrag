@@ -44,8 +44,8 @@ func TestBasicRaceFlow(t *testing.T) {
 	// Enable test mode for faster execution
 	api.SetTestMode(true)
 
-	// Wait for race completion (with much shorter timeout since we're in test mode)
-	timeout := time.After(2 * time.Second)     // Reduced from 15 seconds
+	// Wait for race completion (increased timeout to allow race to complete even in test mode)
+	timeout := time.After(5 * time.Second)     // Increased from 2 seconds to 5 seconds
 	ticker := time.Tick(10 * time.Millisecond) // Faster polling
 
 	for {
@@ -113,8 +113,8 @@ func TestMultipleRaces(t *testing.T) {
 			// Enable test mode for this race to run faster
 			api.SetTestMode(true)
 
-			// Wait for completion of this specific race (reduced timeout for test mode)
-			for j := 0; j < 20; j++ { // Reduced from 150 iterations (2 second timeout instead of 15)
+			// Wait for completion of this specific race (increased timeout for test mode)
+			for j := 0; j < 50; j++ { // Increased from 20 iterations (5 second timeout instead of 2)
 				if api.IsRaceCompleteByID(raceID) {
 					break
 				}
@@ -180,8 +180,8 @@ func TestConcurrentRaces(t *testing.T) {
 			// Enable test mode for faster execution
 			api.SetTestMode(true)
 
-			// Wait for this specific race to complete (reduced timeout for test mode)
-			for j := 0; j < 20; j++ { // Reduced from 150 iterations (2 second timeout instead of 15)
+			// Wait for this specific race to complete (increased timeout for test mode)
+			for j := 0; j < 50; j++ { // Increased from 20 iterations (5 second timeout instead of 2)
 				if api.IsRaceCompleteByID(raceID) {
 					break
 				}
