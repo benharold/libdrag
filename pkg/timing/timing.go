@@ -49,15 +49,16 @@ type TimingBeam struct {
 
 // TimingSystem implements the timing system component
 type TimingSystem struct {
-	id      events.ComponentID
-	bus     events.EventBus
-	config  config.Config
-	mu      sync.RWMutex
-	beams   map[string]*TimingBeam
-	results map[int]*TimingResults
-	running bool
-	status  component.ComponentStatus
-	raceID  string // Add race ID for logging context
+	id       events.ComponentID
+	bus      events.EventBus
+	config   config.Config
+	mu       sync.RWMutex
+	beams    map[string]*TimingBeam
+	results  map[int]*TimingResults
+	running  bool
+	status   component.ComponentStatus
+	raceID   string // Add race ID for logging context
+	testMode bool   // Add test mode flag to skip delays
 }
 
 func NewTimingSystem() *TimingSystem {
@@ -66,15 +67,37 @@ func NewTimingSystem() *TimingSystem {
 
 func NewTimingSystemWithRaceID(raceID string) *TimingSystem {
 	return &TimingSystem{
-		id:      events.ComponentTimingSystem,
-		beams:   make(map[string]*TimingBeam),
-		results: make(map[int]*TimingResults),
-		raceID:  raceID,
+		id:       events.ComponentTimingSystem,
+		beams:    make(map[string]*TimingBeam),
+		results:  make(map[int]*TimingResults),
+		raceID:   raceID,
+		testMode: false, // Default to production mode
 		status: component.ComponentStatus{
 			ID:       events.ComponentTimingSystem,
 			Status:   "stopped",
 			Metadata: make(map[string]interface{}),
 		},
+	}
+}
+
+// SetTestMode enables or disables test mode (fast execution)
+func (ts *TimingSystem) SetTestMode(enabled bool) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.testMode = enabled
+}
+
+// sleep is a helper that respects test mode
+func (ts *TimingSystem) sleep(duration time.Duration) {
+	if ts.testMode {
+		// In test mode, use minimal delays
+		if duration > 100*time.Millisecond {
+			time.Sleep(1 * time.Millisecond) // Very short delay for major waits
+		} else {
+			// Skip very short delays entirely
+		}
+	} else {
+		time.Sleep(duration)
 	}
 }
 
@@ -207,7 +230,7 @@ func (ts *TimingSystem) handleRaceReset(ctx context.Context, event events.Event)
 
 // simulateBeamTriggers simulates realistic beam triggers for demonstration
 func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
-	time.Sleep(2 * time.Second) // Wait for race to start
+	ts.sleep(2 * time.Second) // Wait for race to start
 
 	if !ts.running {
 		return
@@ -217,18 +240,18 @@ func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 
 	// Simulate pre-stage triggers
 	ts.triggerBeam(ctx, "pre_stage_L", 1)
-	time.Sleep(200 * time.Millisecond)
+	ts.sleep(200 * time.Millisecond)
 	ts.triggerBeam(ctx, "pre_stage_R", 2)
 
-	time.Sleep(500 * time.Millisecond)
+	ts.sleep(500 * time.Millisecond)
 
 	// Simulate stage triggers
 	ts.triggerBeam(ctx, "stage_L", 1)
-	time.Sleep(100 * time.Millisecond)
+	ts.sleep(100 * time.Millisecond)
 	ts.triggerBeam(ctx, "stage_R", 2)
 
 	// Wait for green light (approximately)
-	time.Sleep(1 * time.Second)
+	ts.sleep(1 * time.Second)
 
 	// Simulate race progression with realistic times
 	beamSequence := []struct {
@@ -242,14 +265,14 @@ func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 
 	for _, seq := range beamSequence {
 		go func(beamL string, delayL time.Duration, lane int) {
-			time.Sleep(delayL)
+			ts.sleep(delayL)
 			if ts.running {
 				ts.triggerBeam(ctx, beamL, lane)
 			}
 		}(seq.beamL, seq.delayL, 1)
 
 		go func(beamR string, delayR time.Duration, lane int) {
-			time.Sleep(delayR)
+			ts.sleep(delayR)
 			if ts.running {
 				ts.triggerBeam(ctx, beamR, lane)
 			}

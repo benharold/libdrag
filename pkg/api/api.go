@@ -366,6 +366,19 @@ func (api *LibDragAPI) GetShortRaceID(raceID string) string {
 	return shortID
 }
 
+// SetTestMode enables fast mode for all timing systems (for testing)
+func (api *LibDragAPI) SetTestMode(enabled bool) {
+	api.mu.Lock()
+	defer api.mu.Unlock()
+
+	for _, orchestrator := range api.orchestrators {
+		// Get the timing system from the orchestrator and enable test mode
+		if timingSystem := orchestrator.GetTimingSystem(); timingSystem != nil {
+			timingSystem.SetTestMode(enabled)
+		}
+	}
+}
+
 // Version returns the libdrag version
 func Version() string {
 	return "libdrag v1.0.0 - Professional Drag Racing Library"

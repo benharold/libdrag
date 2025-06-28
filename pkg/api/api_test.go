@@ -41,9 +41,12 @@ func TestBasicRaceFlow(t *testing.T) {
 		t.Fatalf("StartRace failed: %v", err)
 	}
 
-	// Wait for race completion (with timeout)
-	timeout := time.After(15 * time.Second)
-	ticker := time.Tick(100 * time.Millisecond)
+	// Enable test mode for faster execution
+	api.SetTestMode(true)
+
+	// Wait for race completion (with much shorter timeout since we're in test mode)
+	timeout := time.After(2 * time.Second)     // Reduced from 15 seconds
+	ticker := time.Tick(10 * time.Millisecond) // Faster polling
 
 	for {
 		select {
@@ -107,8 +110,11 @@ func TestMultipleRaces(t *testing.T) {
 			shortID := api.GetShortRaceID(raceID)
 			t.Logf("Started race %d with ID: %s (short: %s)", raceIndex+1, raceID, shortID)
 
-			// Wait for completion of this specific race
-			for j := 0; j < 150; j++ { // 15 second timeout
+			// Enable test mode for this race to run faster
+			api.SetTestMode(true)
+
+			// Wait for completion of this specific race (reduced timeout for test mode)
+			for j := 0; j < 20; j++ { // Reduced from 150 iterations (2 second timeout instead of 15)
 				if api.IsRaceCompleteByID(raceID) {
 					break
 				}

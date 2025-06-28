@@ -169,6 +169,13 @@ func (ro *RaceOrchestrator) GetResults() map[int]*timing.TimingResults {
 	return results
 }
 
+// GetTimingSystem returns the timing system component
+func (ro *RaceOrchestrator) GetTimingSystem() *timing.TimingSystem {
+	ro.mu.RLock()
+	defer ro.mu.RUnlock()
+	return ro.timingSystem
+}
+
 func (ro *RaceOrchestrator) GetTreeStatus() tree.TreeStatus {
 	if ro.christmasTree == nil {
 		return tree.TreeStatus{}
