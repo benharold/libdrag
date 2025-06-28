@@ -9,7 +9,6 @@ import (
 	"github.com/benharold/libdrag/internal/vehicle"
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
-	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/timing"
 	"github.com/benharold/libdrag/pkg/tree"
 )
@@ -30,34 +29,31 @@ const (
 
 // RaceStatus represents overall race state
 type RaceStatus struct {
-	State       RaceState                                        `json:"state"`
-	StartTime   time.Time                                        `json:"start_time,omitempty"`
-	Components  map[events.ComponentID]component.ComponentStatus `json:"components"`
-	ActiveLanes []int                                            `json:"active_lanes"`
-	LastError   error                                            `json:"last_error,omitempty"`
+	State       RaceState                            `json:"state"`
+	StartTime   time.Time                            `json:"start_time,omitempty"`
+	Components  map[string]component.ComponentStatus `json:"components"`
+	ActiveLanes []int                                `json:"active_lanes"`
+	LastError   error                                `json:"last_error,omitempty"`
 }
 
-// RaceOrchestrator coordinates all race components
+// RaceOrchestrator coordinates all race components using direct method calls
 type RaceOrchestrator struct {
 	mu            sync.RWMutex
-	bus           events.EventBus
 	config        config.Config
-	components    map[events.ComponentID]component.Component
 	status        RaceStatus
-	eventLog      []events.Event
 	timingSystem  *timing.TimingSystem
 	christmasTree *tree.ChristmasTree
+	leftVehicle   *vehicle.SimpleVehicle
+	rightVehicle  *vehicle.SimpleVehicle
 }
 
 func NewRaceOrchestrator() *RaceOrchestrator {
 	return &RaceOrchestrator{
-		components: make(map[events.ComponentID]component.Component),
 		status: RaceStatus{
 			State:       RaceStateIdle,
-			Components:  make(map[events.ComponentID]component.ComponentStatus),
-			ActiveLanes: make([]int, 0),
+			Components:  make(map[string]component.ComponentStatus),
+			ActiveLanes: []int{},
 		},
-		eventLog: make([]events.Event, 0),
 	}
 }
 
@@ -66,21 +62,14 @@ func (ro *RaceOrchestrator) Initialize(ctx context.Context, components []compone
 	defer ro.mu.Unlock()
 
 	ro.config = cfg
-	ro.bus = events.NewSimpleEventBus()
 
-	// Start event bus
-	if err := ro.bus.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start event bus: %v", err)
-	}
-
-	// Subscribe to all events for logging
-	ro.bus.SubscribeAll(ro.logEvent)
-
-	// Initialize all components
+	// Initialize components and identify their types
 	for _, comp := range components {
-		ro.components[comp.GetID()] = comp
+		if err := comp.Initialize(ctx, cfg); err != nil {
+			return fmt.Errorf("failed to initialize component %s: %v", comp.GetID(), err)
+		}
 
-		// Store references to key components
+		// Type-assert to get specific component references
 		switch c := comp.(type) {
 		case *timing.TimingSystem:
 			ro.timingSystem = c
@@ -88,217 +77,168 @@ func (ro *RaceOrchestrator) Initialize(ctx context.Context, components []compone
 			ro.christmasTree = c
 		}
 
-		if err := comp.Initialize(ctx, ro.bus, cfg); err != nil {
-			return fmt.Errorf("failed to initialize component %s: %v", comp.GetID(), err)
-		}
-
-		if err := comp.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start component %s: %v", comp.GetID(), err)
-		}
-
 		ro.status.Components[comp.GetID()] = comp.GetStatus()
 	}
 
-	// Subscribe to race completion events
-	ro.bus.Subscribe(events.EventRunComplete, ro.handleRunComplete)
-
-	ro.status.State = RaceStateIdle
-
-	// Publish system ready event
-	event := &events.BaseEvent{
-		Type:      events.EventSystemReady,
-		Timestamp: time.Now(),
-		Source:    events.ComponentOrchestrator,
-		Data:      map[string]interface{}{"components_count": len(components)},
+	// Verify we have required components
+	if ro.timingSystem == nil {
+		return fmt.Errorf("timing system component is required")
 	}
-	ro.bus.Publish(ctx, event)
+	if ro.christmasTree == nil {
+		return fmt.Errorf("christmas tree component is required")
+	}
+
+	// Start components
+	for _, comp := range components {
+		if err := comp.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start component %s: %v", comp.GetID(), err)
+		}
+	}
+
+	ro.status.State = RaceStatePreparing
+	return nil
+}
+
+func (ro *RaceOrchestrator) StartRace(leftVehicle, rightVehicle *vehicle.SimpleVehicle) error {
+	ro.mu.Lock()
+	defer ro.mu.Unlock()
+
+	fmt.Println("🏁 libdrag Race Orchestrator: Starting new race")
+
+	ro.leftVehicle = leftVehicle
+	ro.rightVehicle = rightVehicle
+	ro.status.ActiveLanes = []int{1, 2}
+	ro.status.StartTime = time.Now()
+	ro.status.State = RaceStateStaging
+
+	// Reset and prepare timing system
+	ro.timingSystem.StartRace()
+	ro.timingSystem.AddVehicles([]int{1, 2})
+
+	// Simulate staging process
+	go ro.simulateRaceSequence()
 
 	return nil
 }
 
-func (ro *RaceOrchestrator) StartRace(leftVehicle, rightVehicle vehicle.VehicleInterface) error {
+func (ro *RaceOrchestrator) simulateRaceSequence() {
+	// Simulate vehicles entering pre-stage
+	time.Sleep(500 * time.Millisecond)
+	ro.christmasTree.SetPreStage(1)
+
+	time.Sleep(200 * time.Millisecond)
+	ro.christmasTree.SetPreStage(2)
+
+	// Update state to armed
 	ro.mu.Lock()
-	defer ro.mu.Unlock()
+	ro.status.State = RaceStateArmed
+	ro.mu.Unlock()
 
-	if ro.status.State != RaceStateIdle {
-		return fmt.Errorf("cannot start race: current state is %s", ro.status.State)
+	// Simulate vehicles entering stage
+	time.Sleep(500 * time.Millisecond)
+	ro.christmasTree.SetStage(1)
+
+	time.Sleep(300 * time.Millisecond)
+	ro.christmasTree.SetStage(2)
+
+	// Wait briefly, then start the tree sequence
+	time.Sleep(500 * time.Millisecond)
+
+	if ro.christmasTree.AllStaged() {
+		ro.mu.Lock()
+		ro.status.State = RaceStateRunning
+		ro.mu.Unlock()
+
+		// Start the Christmas tree sequence and get green light time
+		err := ro.christmasTree.StartSequence(config.TreeSequencePro)
+		if err != nil {
+			fmt.Printf("❌ Failed to start tree sequence: %v\n", err)
+			return
+		}
+
+		// Wait for sequence to complete and get green light time
+		// In a real implementation, the tree would return the green light time
+		time.Sleep(500 * time.Millisecond) // Wait for sequence
+		greenTime := time.Now()
+
+		ro.timingSystem.SetGreenLight(greenTime)
+
+		// Simulate vehicle race
+		ro.simulateVehicleRun(greenTime)
 	}
+}
 
-	ro.status.State = RaceStatePreparing
-	ro.status.StartTime = time.Now()
-	ro.status.ActiveLanes = []int{1, 2}
+func (ro *RaceOrchestrator) simulateVehicleRun(greenTime time.Time) {
+	// Simulate realistic reaction times and race progression
 
-	fmt.Println("🏁 libdrag Race Orchestrator: Starting new race")
+	// Lane 1 vehicle starts (good reaction time)
+	reactionTime1 := 400 * time.Millisecond
+	startTime1 := greenTime.Add(reactionTime1)
+	ro.timingSystem.TriggerBeam("stage", 1, startTime1)
 
-	// Notify components about race preparation
-	event := &events.BaseEvent{
-		Type:      events.EventVehicleEntered,
-		Timestamp: time.Now(),
-		Source:    events.ComponentOrchestrator,
-		Data: map[string]interface{}{
-			"lanes": ro.status.ActiveLanes,
-		},
-	}
+	// Lane 2 vehicle starts (slightly slower)
+	reactionTime2 := 450 * time.Millisecond
+	startTime2 := greenTime.Add(reactionTime2)
+	ro.timingSystem.TriggerBeam("stage", 2, startTime2)
 
-	return ro.bus.Publish(context.Background(), event)
+	// Simulate 60-foot times
+	time.Sleep(50 * time.Millisecond) // Fast simulation
+	ro.timingSystem.TriggerBeam("60_foot", 1, startTime1.Add(950*time.Millisecond))
+	ro.timingSystem.TriggerBeam("60_foot", 2, startTime2.Add(980*time.Millisecond))
+
+	// Simulate eighth-mile times
+	time.Sleep(50 * time.Millisecond)
+	ro.timingSystem.TriggerBeam("660_foot", 1, startTime1.Add(4200*time.Millisecond))
+	ro.timingSystem.TriggerBeam("660_foot", 2, startTime2.Add(4350*time.Millisecond))
+
+	// Simulate quarter-mile finish
+	time.Sleep(50 * time.Millisecond)
+	ro.timingSystem.TriggerBeam("1320_foot", 1, startTime1.Add(7300*time.Millisecond))
+	ro.timingSystem.TriggerBeam("1320_foot", 2, startTime2.Add(7500*time.Millisecond))
+
+	// Race complete
+	ro.mu.Lock()
+	ro.status.State = RaceStateComplete
+	ro.mu.Unlock()
+
+	fmt.Println("🏁 libdrag Race Orchestrator: Race complete!")
 }
 
 func (ro *RaceOrchestrator) GetRaceStatus() RaceStatus {
 	ro.mu.RLock()
 	defer ro.mu.RUnlock()
-
-	// Update component statuses
-	status := ro.status
-	status.Components = make(map[events.ComponentID]component.ComponentStatus)
-	for id, comp := range ro.components {
-		status.Components[id] = comp.GetStatus()
-	}
-
-	return status
+	return ro.status
 }
 
 func (ro *RaceOrchestrator) GetResults() map[int]*timing.TimingResults {
 	if ro.timingSystem == nil {
-		return nil
+		return make(map[int]*timing.TimingResults)
 	}
-
-	results := make(map[int]*timing.TimingResults)
-	results[1] = ro.timingSystem.GetResults(1)
-	results[2] = ro.timingSystem.GetResults(2)
-
-	return results
+	return ro.timingSystem.GetAllResults()
 }
 
-// GetTimingSystem returns the timing system component
 func (ro *RaceOrchestrator) GetTimingSystem() *timing.TimingSystem {
-	ro.mu.RLock()
-	defer ro.mu.RUnlock()
 	return ro.timingSystem
 }
 
-func (ro *RaceOrchestrator) GetTreeStatus() tree.TreeStatus {
+func (ro *RaceOrchestrator) GetTreeStatus() *tree.TreeStatus {
 	if ro.christmasTree == nil {
-		return tree.TreeStatus{}
+		return nil
 	}
-	return ro.christmasTree.GetTreeStatus()
+	status := ro.christmasTree.GetTreeStatus()
+	return &status
 }
 
-func (ro *RaceOrchestrator) Stop() {
-	for _, comp := range ro.components {
-		comp.Stop()
-	}
-	if ro.bus != nil {
-		ro.bus.Stop()
-	}
-}
-
-func (ro *RaceOrchestrator) logEvent(ctx context.Context, event events.Event) error {
+func (ro *RaceOrchestrator) Stop() error {
 	ro.mu.Lock()
 	defer ro.mu.Unlock()
 
-	ro.eventLog = append(ro.eventLog, event)
-	return nil
-}
-
-func (ro *RaceOrchestrator) handleRunComplete(ctx context.Context, event events.Event) error {
-	data := event.GetData()
-	result, ok := data["results"].(*timing.TimingResults)
-	if !ok {
-		return fmt.Errorf("invalid results data")
-	}
-
-	fmt.Printf("🏁 libdrag: Lane %d completed: %.3fs", result.Lane, *result.QuarterMileTime)
-	if result.TrapSpeed != nil {
-		fmt.Printf(" @ %.1f mph", *result.TrapSpeed)
-	}
-	fmt.Println()
-
-	// Check if all lanes are complete
-	ro.mu.Lock()
-	defer ro.mu.Unlock()
-
-	allComplete := true
-	for _, lane := range ro.status.ActiveLanes {
-		if result := ro.timingSystem.GetResults(lane); result == nil || !result.IsComplete {
-			allComplete = false
-			break
-		}
-	}
-
-	if allComplete {
-		ro.status.State = RaceStateComplete
-		fmt.Println("🏆 libdrag: Race completed!")
-
-		// Determine winner
-		ro.determineWinner()
-	}
-
-	return nil
-}
-
-func (ro *RaceOrchestrator) determineWinner() {
-	results := ro.GetResults()
-	var bestTime *float64
-	var winner int
-
-	for lane, result := range results {
-		if result != nil && result.QuarterMileTime != nil && !result.IsFoul {
-			if bestTime == nil || *result.QuarterMileTime < *bestTime {
-				bestTime = result.QuarterMileTime
-				winner = lane
-			}
-		}
-	}
-
-	if winner > 0 {
-		fmt.Printf("🥇 libdrag: Winner: Lane %d with %.3fs\n", winner, *bestTime)
-
-		// Calculate margin
-		for lane, result := range results {
-			if lane != winner && result != nil && result.QuarterMileTime != nil {
-				margin := *result.QuarterMileTime - *bestTime
-				fmt.Printf("📊 libdrag: Lane %d lost by %.3fs\n", lane, margin)
-			}
-		}
-	}
-}
-
-func (ro *RaceOrchestrator) Reset() error {
-	ro.mu.Lock()
-	defer ro.mu.Unlock()
-
-	// Only allow reset if race is complete, aborted, or in error state
-	if ro.status.State != RaceStateComplete && ro.status.State != RaceStateAborted && ro.status.State != RaceStateError {
-		return fmt.Errorf("cannot reset race: current state is %s", ro.status.State)
-	}
-
-	// Reset race status
 	ro.status.State = RaceStateIdle
-	ro.status.StartTime = time.Time{}
-	ro.status.ActiveLanes = make([]int, 0)
-	ro.status.LastError = nil
-
-	// Clear event log
-	ro.eventLog = make([]events.Event, 0)
-
-	fmt.Println("🔄 libdrag Race Orchestrator: Race reset to idle state")
-
-	// Publish reset event
-	event := &events.BaseEvent{
-		Type:      events.EventRaceReset,
-		Timestamp: time.Now(),
-		Source:    events.ComponentOrchestrator,
-		Data:      map[string]interface{}{},
-	}
-	ro.bus.Publish(context.Background(), event)
-
 	return nil
 }
 
-// IsRaceComplete returns true if the race is in a completed state
 func (ro *RaceOrchestrator) IsRaceComplete() bool {
 	ro.mu.RLock()
 	defer ro.mu.RUnlock()
-
-	return ro.status.State == RaceStateComplete || ro.status.State == RaceStateAborted || ro.status.State == RaceStateError
+	return ro.status.State == RaceStateComplete
 }

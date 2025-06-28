@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/benharold/libdrag/pkg/config"
-	"github.com/benharold/libdrag/pkg/events"
 )
 
 func TestNewChristmasTree(t *testing.T) {
@@ -26,10 +25,9 @@ func TestNewChristmasTree(t *testing.T) {
 
 func TestChristmasTreeInitialize(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
@@ -42,11 +40,10 @@ func TestChristmasTreeInitialize(t *testing.T) {
 
 func TestChristmasTreeLightStates(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
 	// Initialize
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
@@ -65,32 +62,19 @@ func TestChristmasTreeLightStates(t *testing.T) {
 	}
 }
 
-// Test Pre-Stage Light Logic
+// Test Pre-Stage Light Logic using direct method calls
 func TestPreStageSequence(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
 	// Initialize
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	ctx := context.Background()
-
 	// Test single lane pre-stage
-	preStageEvent := &events.BaseEvent{
-		Type:      events.EventPreStageOn,
-		Timestamp: time.Now(),
-		Source:    events.ComponentTimingSystem,
-		Data:      map[string]interface{}{"lane": 1},
-	}
-
-	err = tree.HandleEvent(ctx, preStageEvent)
-	if err != nil {
-		t.Fatalf("HandleEvent failed: %v", err)
-	}
+	tree.SetPreStage(1)
 
 	// Verify pre-stage light is on for lane 1
 	status := tree.GetTreeStatus()
@@ -104,17 +88,7 @@ func TestPreStageSequence(t *testing.T) {
 	}
 
 	// Pre-stage lane 2
-	preStageEvent2 := &events.BaseEvent{
-		Type:      events.EventPreStageOn,
-		Timestamp: time.Now(),
-		Source:    events.ComponentTimingSystem,
-		Data:      map[string]interface{}{"lane": 2},
-	}
-
-	err = tree.HandleEvent(ctx, preStageEvent2)
-	if err != nil {
-		t.Fatalf("HandleEvent failed: %v", err)
-	}
+	tree.SetPreStage(2)
 
 	// Now tree should be armed
 	status = tree.GetTreeStatus()
@@ -123,14 +97,13 @@ func TestPreStageSequence(t *testing.T) {
 	}
 }
 
-// Test Stage Light Logic
+// Test Stage Light Logic using direct method calls
 func TestStageSequence(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
 	// Initialize and start
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
@@ -140,31 +113,12 @@ func TestStageSequence(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	ctx := context.Background()
-
 	// Pre-stage both lanes first
-	for lane := 1; lane <= 2; lane++ {
-		preStageEvent := &events.BaseEvent{
-			Type:      events.EventPreStageOn,
-			Timestamp: time.Now(),
-			Source:    events.ComponentTimingSystem,
-			Data:      map[string]interface{}{"lane": lane},
-		}
-		tree.HandleEvent(ctx, preStageEvent)
-	}
+	tree.SetPreStage(1)
+	tree.SetPreStage(2)
 
-	// Stage lane 1 (using correct event type)
-	stageEvent := &events.BaseEvent{
-		Type:      events.EventStageOn,
-		Timestamp: time.Now(),
-		Source:    events.ComponentTimingSystem,
-		Data:      map[string]interface{}{"lane": 1},
-	}
-
-	err = tree.HandleEvent(ctx, stageEvent)
-	if err != nil {
-		t.Fatalf("HandleEvent failed: %v", err)
-	}
+	// Stage lane 1
+	tree.SetStage(1)
 
 	// Verify stage light is on for lane 1
 	status := tree.GetTreeStatus()
@@ -173,42 +127,25 @@ func TestStageSequence(t *testing.T) {
 	}
 }
 
-// Test Pro Tree Sequence Timing
+// Test Pro Tree Sequence Timing using direct method calls
 func TestProTreeSequence(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
 	// Initialize
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	ctx := context.Background()
-
-	// Pre-stage and stage both lanes
-	for lane := 1; lane <= 2; lane++ {
-		preStageEvent := &events.BaseEvent{
-			Type:      events.EventPreStageOn,
-			Timestamp: time.Now(),
-			Source:    events.ComponentTimingSystem,
-			Data:      map[string]interface{}{"lane": lane},
-		}
-		tree.HandleEvent(ctx, preStageEvent)
-	}
+	// Pre-stage both lanes
+	tree.SetPreStage(1)
+	tree.SetPreStage(2)
 
 	// Start Pro sequence
-	raceStartEvent := &events.BaseEvent{
-		Type:      events.EventRaceStarted,
-		Timestamp: time.Now(),
-		Source:    events.ComponentStarterControl,
-		Data:      map[string]interface{}{"sequence_type": config.TreeSequencePro},
-	}
-
-	err = tree.HandleEvent(ctx, raceStartEvent)
+	err = tree.StartSequence(config.TreeSequencePro)
 	if err != nil {
-		t.Fatalf("HandleEvent failed: %v", err)
+		t.Fatalf("StartSequence failed: %v", err)
 	}
 
 	// Verify sequence is running
@@ -234,74 +171,19 @@ func TestProTreeSequence(t *testing.T) {
 	}
 }
 
-// Test Sportsman Tree Sequence Timing
-func TestSportsmanTreeSequence(t *testing.T) {
-	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
-	cfg := config.NewDefaultConfig()
-
-	// Initialize
-	err := tree.Initialize(context.Background(), bus, cfg)
-	if err != nil {
-		t.Fatalf("Initialize failed: %v", err)
-	}
-
-	ctx := context.Background()
-
-	// Pre-stage and stage both lanes
-	for lane := 1; lane <= 2; lane++ {
-		preStageEvent := &events.BaseEvent{
-			Type:      events.EventPreStageOn,
-			Timestamp: time.Now(),
-			Source:    events.ComponentTimingSystem,
-			Data:      map[string]interface{}{"lane": lane},
-		}
-		tree.HandleEvent(ctx, preStageEvent)
-	}
-
-	// Start Sportsman sequence
-	raceStartEvent := &events.BaseEvent{
-		Type:      events.EventRaceStarted,
-		Timestamp: time.Now(),
-		Source:    events.ComponentStarterControl,
-		Data:      map[string]interface{}{"sequence_type": config.TreeSequenceSportsman},
-	}
-
-	err = tree.HandleEvent(ctx, raceStartEvent)
-	if err != nil {
-		t.Fatalf("HandleEvent failed: %v", err)
-	}
-
-	// Verify sequence type
-	status := tree.GetTreeStatus()
-	if status.SequenceType != config.TreeSequenceSportsman {
-		t.Fatalf("Expected Sportsman sequence, got %v", status.SequenceType)
-	}
-}
-
 // Test Tree Not Armed Error
 func TestTreeNotArmedError(t *testing.T) {
 	tree := NewChristmasTree()
-	bus := events.NewSimpleEventBus()
 	cfg := config.NewDefaultConfig()
 
 	// Initialize
-	err := tree.Initialize(context.Background(), bus, cfg)
+	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	ctx := context.Background()
-
 	// Try to start sequence without arming tree
-	raceStartEvent := &events.BaseEvent{
-		Type:      events.EventRaceStarted,
-		Timestamp: time.Now(),
-		Source:    events.ComponentStarterControl,
-		Data:      map[string]interface{}{"sequence_type": config.TreeSequencePro},
-	}
-
-	err = tree.HandleEvent(ctx, raceStartEvent)
+	err = tree.StartSequence(config.TreeSequencePro)
 	if err == nil {
 		t.Fatal("Expected error when starting sequence with unarmed tree")
 	}

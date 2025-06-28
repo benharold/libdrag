@@ -3,13 +3,11 @@ package timing
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
-	"github.com/benharold/libdrag/pkg/events"
 )
 
 // TimingResults holds race timing data
@@ -49,18 +47,16 @@ type TimingBeam struct {
 
 // TimingSystem implements the timing system component
 type TimingSystem struct {
-	id       events.ComponentID
-	bus      events.EventBus
-	config   config.Config
-	mu       sync.RWMutex
-	beams    map[string]*TimingBeam
-	results  map[int]*TimingResults
-	running  bool
-	status   component.ComponentStatus
-	raceID   string // Add race ID for logging context
-	testMode bool   // Add test mode flag to skip delays
-
-	greenLightTime time.Time // Add green light time for reaction time calculation
+	id             string
+	config         config.Config
+	mu             sync.RWMutex
+	beams          map[string]*TimingBeam
+	results        map[int]*TimingResults
+	running        bool
+	status         component.ComponentStatus
+	raceID         string
+	testMode       bool
+	greenLightTime time.Time
 }
 
 func NewTimingSystem() *TimingSystem {
@@ -69,13 +65,13 @@ func NewTimingSystem() *TimingSystem {
 
 func NewTimingSystemWithRaceID(raceID string) *TimingSystem {
 	return &TimingSystem{
-		id:       events.ComponentTimingSystem,
+		id:       "timing_system",
 		beams:    make(map[string]*TimingBeam),
 		results:  make(map[int]*TimingResults),
 		raceID:   raceID,
-		testMode: false, // Default to production mode
+		testMode: false,
 		status: component.ComponentStatus{
-			ID:       events.ComponentTimingSystem,
+			ID:       "timing_system",
 			Status:   "stopped",
 			Metadata: make(map[string]interface{}),
 		},
@@ -89,26 +85,11 @@ func (ts *TimingSystem) SetTestMode(enabled bool) {
 	ts.testMode = enabled
 }
 
-// sleep is a helper that respects test mode
-func (ts *TimingSystem) sleep(duration time.Duration) {
-	if ts.testMode {
-		// In test mode, use minimal delays
-		if duration > 100*time.Millisecond {
-			time.Sleep(1 * time.Millisecond) // Very short delay for major waits
-		} else {
-			// Skip very short delays entirely
-		}
-	} else {
-		time.Sleep(duration)
-	}
-}
-
-func (ts *TimingSystem) GetID() events.ComponentID {
+func (ts *TimingSystem) GetID() string {
 	return ts.id
 }
 
-func (ts *TimingSystem) Initialize(ctx context.Context, bus events.EventBus, cfg config.Config) error {
-	ts.bus = bus
+func (ts *TimingSystem) Initialize(ctx context.Context, cfg config.Config) error {
 	ts.config = cfg
 
 	// Initialize beams from config
@@ -122,13 +103,6 @@ func (ts *TimingSystem) Initialize(ctx context.Context, bus events.EventBus, cfg
 		}
 	}
 
-	// Subscribe to relevant events
-	ts.bus.Subscribe(events.EventRaceStarted, ts.handleRaceStart)
-	ts.bus.Subscribe(events.EventVehicleEntered, ts.handleVehicleEnter)
-	ts.bus.Subscribe(events.EventGreenLight, ts.handleGreenLight)
-	ts.bus.Subscribe(events.EventBeamTriggered, ts.handleBeamTriggered)
-	ts.bus.Subscribe(events.EventRaceReset, ts.handleRaceReset)
-
 	ts.status.Status = "ready"
 	return nil
 }
@@ -139,10 +113,6 @@ func (ts *TimingSystem) Start(ctx context.Context) error {
 
 	ts.running = true
 	ts.status.Status = "running"
-
-	// Start beam monitoring simulation
-	go ts.simulateBeamTriggers(ctx)
-
 	return nil
 }
 
@@ -161,23 +131,8 @@ func (ts *TimingSystem) GetStatus() component.ComponentStatus {
 	return ts.status
 }
 
-func (ts *TimingSystem) HandleEvent(ctx context.Context, event events.Event) error {
-	switch event.GetType() {
-	case events.EventRaceStarted:
-		return ts.handleRaceStart(ctx, event)
-	case events.EventVehicleEntered:
-		return ts.handleVehicleEnter(ctx, event)
-	case events.EventGreenLight:
-		return ts.handleGreenLight(ctx, event)
-	case events.EventBeamTriggered:
-		return ts.handleBeamTriggered(ctx, event)
-	case events.EventRaceReset:
-		return ts.handleRaceReset(ctx, event)
-	}
-	return nil
-}
-
-func (ts *TimingSystem) handleRaceStart(ctx context.Context, event events.Event) error {
+// Direct methods to replace event handling
+func (ts *TimingSystem) StartRace() {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -185,330 +140,38 @@ func (ts *TimingSystem) handleRaceStart(ctx context.Context, event events.Event)
 
 	// Reset timing results
 	ts.results = make(map[int]*TimingResults)
+	ts.greenLightTime = time.Time{}
 
 	// Reset beam states
 	for _, beam := range ts.beams {
 		beam.IsTriggered = false
 		beam.LastTrigger = time.Time{}
 	}
-
-	return nil
 }
 
-func (ts *TimingSystem) handleVehicleEnter(ctx context.Context, event events.Event) error {
-	data := event.GetData()
-	if lanes, ok := data["lanes"].([]int); ok {
-		for _, lane := range lanes {
-			ts.mu.Lock()
-			ts.results[lane] = &TimingResults{
-				Lane:         lane,
-				StartTime:    time.Now(),
-				BeamTriggers: make(map[string]time.Time),
-				IsComplete:   false,
-				IsFoul:       false,
-			}
-			ts.mu.Unlock()
-		}
-	}
-	return nil
-}
-
-func (ts *TimingSystem) handleRaceReset(ctx context.Context, event events.Event) error {
+func (ts *TimingSystem) AddVehicles(lanes []int) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
-	fmt.Println("🔄 libdrag Timing System: Resetting for new race")
-
-	// Stop any running simulations
-	ts.running = false
-
-	// Reset timing results
-	ts.results = make(map[int]*TimingResults)
-
-	// Reset beam states
-	for _, beam := range ts.beams {
-		beam.IsTriggered = false
-		beam.LastTrigger = time.Time{}
-	}
-
-	// Restart the timing system and start a new simulation
-	ts.running = true
-	go ts.simulateBeamTriggers(ctx)
-
-	return nil
-}
-
-// simulateBeamTriggers simulates realistic beam triggers for demonstration
-func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
-	ts.sleep(2 * time.Second) // Wait for race to start
-
-	if !ts.running {
-		return
-	}
-
-	fmt.Println("🚗 libdrag: Simulating vehicle beam triggers...")
-
-	// Simulate pre-stage triggers
-	ts.triggerBeam(ctx, "pre_stage_L", 1)
-	ts.sleep(200 * time.Millisecond)
-	ts.triggerBeam(ctx, "pre_stage_R", 2)
-
-	ts.sleep(500 * time.Millisecond)
-
-	// Simulate stage triggers
-	ts.triggerBeam(ctx, "stage_L", 1)
-	ts.sleep(100 * time.Millisecond)
-	ts.triggerBeam(ctx, "stage_R", 2)
-
-	// Wait for green light (approximately)
-	ts.sleep(1 * time.Second)
-
-	// In test mode, we'll trigger beams quickly but with simulated realistic times
-	if ts.testMode {
-		// Define realistic race times for simulation
-		realisticTimes := []struct {
-			beamL, beamR                   string
-			simulatedTimeL, simulatedTimeR float64 // Times in seconds from race start
-		}{
-			{"sixty_foot_L", "sixty_foot_R", 0.950, 0.980},     // 60ft times
-			{"eighth_mile_L", "eighth_mile_R", 4.200, 4.350},   // 1/8 mile times
-			{"quarter_mile_L", "quarter_mile_R", 7.300, 7.500}, // 1/4 mile times
-		}
-
-		// Trigger beams quickly but record realistic times
-		for _, timing := range realisticTimes {
-			ts.sleep(10 * time.Millisecond) // Very short delay for test execution speed
-			if ts.running {
-				ts.triggerBeamWithSimulatedTime(ctx, timing.beamL, 1, timing.simulatedTimeL)
-				ts.triggerBeamWithSimulatedTime(ctx, timing.beamR, 2, timing.simulatedTimeR)
-			}
-		}
-	} else {
-		// Production mode - use realistic delays
-		beamSequence := []struct {
-			beamL, beamR   string
-			delayL, delayR time.Duration
-		}{
-			{"sixty_foot_L", "sixty_foot_R", 950 * time.Millisecond, 980 * time.Millisecond},
-			{"eighth_mile_L", "eighth_mile_R", 4200 * time.Millisecond, 4350 * time.Millisecond},
-			{"quarter_mile_L", "quarter_mile_R", 7300 * time.Millisecond, 7500 * time.Millisecond},
-		}
-
-		for _, seq := range beamSequence {
-			go func(beamL string, delayL time.Duration, lane int) {
-				ts.sleep(delayL)
-				if ts.running {
-					ts.triggerBeam(ctx, beamL, lane)
-				}
-			}(seq.beamL, seq.delayL, 1)
-
-			go func(beamR string, delayR time.Duration, lane int) {
-				ts.sleep(delayR)
-				if ts.running {
-					ts.triggerBeam(ctx, beamR, lane)
-				}
-			}(seq.beamR, seq.delayR, 2)
+	for _, lane := range lanes {
+		ts.results[lane] = &TimingResults{
+			Lane:         lane,
+			StartTime:    time.Time{}, // Will be set when vehicle actually starts
+			BeamTriggers: make(map[string]time.Time),
+			IsComplete:   false,
+			IsFoul:       false,
 		}
 	}
 }
 
-func (ts *TimingSystem) getShortHash() string {
-	if ts.raceID == "" {
-		return ""
-	}
-	// Generate a simple 8-character hash from the race ID
-	if len(ts.raceID) >= 8 {
-		return ts.raceID[:8]
-	}
-	return ts.raceID
-}
-
-func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int) {
+func (ts *TimingSystem) SetGreenLight(greenTime time.Time) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
-	if beam, exists := ts.beams[beamID]; exists {
-		beam.IsTriggered = true
-		beam.LastTrigger = time.Now()
-
-		shortHash := ts.getShortHash()
-		hashPrefix := ""
-		if shortHash != "" {
-			hashPrefix = fmt.Sprintf("[%s] ", shortHash)
-		}
-
-		// Check if results exist for this lane before accessing
-		if result, exists := ts.results[lane]; exists && !result.StartTime.IsZero() {
-			fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) at %.3fs\n",
-				hashPrefix, beamID, lane, time.Since(result.StartTime).Seconds())
-		} else {
-			fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) - race not yet started\n",
-				hashPrefix, beamID, lane)
-		}
-
-		// Record timing event only if results exist
-		if result, exists := ts.results[lane]; exists {
-			if result.BeamTriggers == nil {
-				result.BeamTriggers = make(map[string]time.Time)
-			}
-			result.BeamTriggers[beamID] = beam.LastTrigger
-			ts.updateTimingMilestones(beamID, result)
-		}
-
-		// Publish beam trigger event
-		event := &events.BaseEvent{
-			Type:      events.EventBeamTriggered,
-			Timestamp: time.Now(),
-			Source:    ts.id,
-			Data: map[string]interface{}{
-				"beam_id":  beamID,
-				"lane":     lane,
-				"position": beam.Position,
-			},
-		}
-		ts.bus.Publish(ctx, event)
-	}
-}
-
-func (ts *TimingSystem) triggerBeamWithSimulatedTime(ctx context.Context, beamID string, lane int, simulatedTime float64) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-
-	if beam, exists := ts.beams[beamID]; exists {
-		beam.IsTriggered = true
-		beam.LastTrigger = time.Now()
-
-		shortHash := ts.getShortHash()
-		hashPrefix := ""
-		if shortHash != "" {
-			hashPrefix = fmt.Sprintf("[%s] ", shortHash)
-		}
-
-		// Display the simulated time instead of actual elapsed time
-		fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) at %.3fs\n",
-			hashPrefix, beamID, lane, simulatedTime)
-
-		// Record timing event with simulated time
-		if result, exists := ts.results[lane]; exists {
-			if result.BeamTriggers == nil {
-				result.BeamTriggers = make(map[string]time.Time)
-			}
-			result.BeamTriggers[beamID] = beam.LastTrigger
-			ts.updateTimingMilestonesWithSimulatedTime(beamID, result, simulatedTime)
-		}
-
-		// Publish beam trigger event
-		event := &events.BaseEvent{
-			Type:      events.EventBeamTriggered,
-			Timestamp: time.Now(),
-			Source:    ts.id,
-			Data: map[string]interface{}{
-				"beam_id":  beamID,
-				"lane":     lane,
-				"position": beam.Position,
-			},
-		}
-		ts.bus.Publish(ctx, event)
-	}
-}
-
-func (ts *TimingSystem) updateTimingMilestones(beamID string, result *TimingResults) {
-	elapsed := time.Since(result.StartTime).Seconds()
-
-	switch beamID {
-	case "stage_L", "stage_R":
-		if result.ReactionTime == nil {
-			result.ReactionTime = &elapsed
-		}
-	case "sixty_foot_L", "sixty_foot_R":
-		if result.SixtyFootTime == nil {
-			result.SixtyFootTime = &elapsed
-		}
-	case "eighth_mile_L", "eighth_mile_R":
-		if result.EighthMileTime == nil {
-			result.EighthMileTime = &elapsed
-		}
-	case "quarter_mile_L", "quarter_mile_R":
-		if result.QuarterMileTime == nil {
-			result.QuarterMileTime = &elapsed
-			// Calculate trap speed (simplified)
-			speed := 120.0 + rand.Float64()*40.0 // Random speed between 120-160 mph
-			result.TrapSpeed = &speed
-			result.IsComplete = true
-
-			// Publish run complete
-			event := &events.BaseEvent{
-				Type:      events.EventRunComplete,
-				Timestamp: time.Now(),
-				Source:    ts.id,
-				Data: map[string]interface{}{
-					"lane":    result.Lane,
-					"results": result,
-				},
-			}
-			ts.bus.Publish(context.Background(), event)
-		}
-	}
-}
-
-func (ts *TimingSystem) updateTimingMilestonesWithSimulatedTime(beamID string, result *TimingResults, simulatedTime float64) {
-	switch beamID {
-	case "stage_L", "stage_R":
-		if result.ReactionTime == nil {
-			// Simulate a realistic reaction time (0.1-0.8 seconds)
-			reactionTime := 0.1 + rand.Float64()*0.7
-			result.ReactionTime = &reactionTime
-		}
-	case "sixty_foot_L", "sixty_foot_R":
-		if result.SixtyFootTime == nil {
-			result.SixtyFootTime = &simulatedTime
-		}
-	case "eighth_mile_L", "eighth_mile_R":
-		if result.EighthMileTime == nil {
-			result.EighthMileTime = &simulatedTime
-		}
-	case "quarter_mile_L", "quarter_mile_R":
-		if result.QuarterMileTime == nil {
-			result.QuarterMileTime = &simulatedTime
-			// Calculate trap speed (simplified)
-			speed := 120.0 + rand.Float64()*40.0 // Random speed between 120-160 mph
-			result.TrapSpeed = &speed
-			result.IsComplete = true
-
-			// Publish run complete
-			event := &events.BaseEvent{
-				Type:      events.EventRunComplete,
-				Timestamp: time.Now(),
-				Source:    ts.id,
-				Data: map[string]interface{}{
-					"lane":    result.Lane,
-					"results": result,
-				},
-			}
-			ts.bus.Publish(context.Background(), event)
-		}
-	}
-}
-
-func (ts *TimingSystem) GetResults(lane int) *TimingResults {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
-	if result, exists := ts.results[lane]; exists {
-		return result
-	}
-	return nil
-}
-
-// handleGreenLight records the green light timestamp for reaction time calculations
-func (ts *TimingSystem) handleGreenLight(ctx context.Context, event events.Event) error {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-
-	ts.greenLightTime = event.GetTimestamp()
+	ts.greenLightTime = greenTime
 	fmt.Printf("🟢 libdrag Timing System: Green light at %v\n", ts.greenLightTime)
 
-	// Check for existing stage beam triggers that happened before green light (red light fouls)
+	// Check for existing early starts (red light fouls)
 	for _, result := range ts.results {
 		if !result.StartTime.IsZero() {
 			// Vehicle already left starting line before green light
@@ -522,25 +185,9 @@ func (ts *TimingSystem) handleGreenLight(ctx context.Context, event events.Event
 			}
 		}
 	}
-
-	return nil
 }
 
-// handleBeamTriggered processes beam trigger events and calculates timing splits
-func (ts *TimingSystem) handleBeamTriggered(ctx context.Context, event events.Event) error {
-	data := event.GetData()
-	beamID, ok := data["beam_id"].(string)
-	if !ok {
-		return fmt.Errorf("invalid beam_id in beam trigger event")
-	}
-
-	lane, ok := data["lane"].(int)
-	if !ok {
-		return fmt.Errorf("invalid lane in beam trigger event")
-	}
-
-	triggerTime := event.GetTimestamp()
-
+func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Time) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -568,6 +215,9 @@ func (ts *TimingSystem) handleBeamTriggered(ctx context.Context, event events.Ev
 					result.IsFoul = true
 					result.FoulReason = "red_light"
 				}
+			} else {
+				// No green light yet - set start time for later calculation
+				result.StartTime = triggerTime
 			}
 
 		case "60_foot":
@@ -600,7 +250,6 @@ func (ts *TimingSystem) handleBeamTriggered(ctx context.Context, event events.Ev
 				result.IsComplete = true
 
 				// Calculate trap speed (simplified calculation)
-				// Real trap speed uses the speed trap section timing
 				trapSpeed := 1320.0 / quarterMileTime * 0.681818 // Convert ft/s to mph
 				result.TrapSpeed = &trapSpeed
 			}
@@ -608,6 +257,26 @@ func (ts *TimingSystem) handleBeamTriggered(ctx context.Context, event events.Ev
 
 		fmt.Printf("🏁 libdrag Timing: Lane %d triggered %s beam at %v\n", lane, beamID, triggerTime)
 	}
+}
 
+func (ts *TimingSystem) GetResults(lane int) *TimingResults {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+
+	if result, exists := ts.results[lane]; exists {
+		return result
+	}
 	return nil
+}
+
+func (ts *TimingSystem) GetAllResults() map[int]*TimingResults {
+	ts.mu.RLock()
+	defer ts.mu.RUnlock()
+
+	// Return a copy to avoid race conditions
+	results := make(map[int]*TimingResults)
+	for lane, result := range ts.results {
+		results[lane] = result
+	}
+	return results
 }
