@@ -177,8 +177,11 @@ func TestConcurrentRaces(t *testing.T) {
 			shortID := api.GetShortRaceID(raceID)
 			t.Logf("Started concurrent race %d (%s)", raceIndex, shortID)
 
-			// Wait for this specific race to complete
-			for j := 0; j < 150; j++ { // 15 second timeout
+			// Enable test mode for faster execution
+			api.SetTestMode(true)
+
+			// Wait for this specific race to complete (reduced timeout for test mode)
+			for j := 0; j < 20; j++ { // Reduced from 150 iterations (2 second timeout instead of 15)
 				if api.IsRaceCompleteByID(raceID) {
 					break
 				}
