@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -14,6 +16,7 @@ import (
 	"github.com/benharold/libdrag/pkg/timing"
 	"github.com/benharold/libdrag/pkg/tree"
 	"github.com/google/uuid"
+	"github.com/speps/go-hashids/v2"
 )
 
 // LibDragAPI provides a mobile-friendly interface
@@ -70,8 +73,8 @@ func (api *LibDragAPI) StartRaceWithID() (string, error) {
 	// Create new orchestrator for this race
 	raceOrchestrator := orchestrator.NewRaceOrchestrator()
 
-	// Create components for this race
-	timingSystem := timing.NewTimingSystem()
+	// Create components for this race with race ID context
+	timingSystem := timing.NewTimingSystemWithRaceID(raceID)
 	christmasTree := tree.NewChristmasTree()
 
 	components := []component.Component{
@@ -350,7 +353,66 @@ func (api *LibDragAPI) GetAllRaceStatuses() map[string]string {
 	return statuses
 }
 
+// GetShortRaceID returns a short identifier for logging purposes
+func (api *LibDragAPI) GetShortRaceID(raceID string) string {
+	shortID, err := encodeRaceID(raceID)
+	if err != nil {
+		// Fallback to first 8 characters of UUID if encoding fails
+		if len(raceID) >= 8 {
+			return raceID[:8]
+		}
+		return raceID
+	}
+	return shortID
+}
+
 // Version returns the libdrag version
 func Version() string {
 	return "libdrag v1.0.0 - Professional Drag Racing Library"
+}
+
+// hashids encoder
+var hd *hashids.HashID
+
+// Initialize the hashids package
+func init() {
+	// Use a static salt and min length for consistent short IDs
+	hdata := hashids.NewData()
+	hdata.Salt = "libdrag"
+	hdata.MinLength = 6
+
+	var err error
+	hd, err = hashids.NewWithData(hdata)
+	if err != nil {
+		// Fallback to default if initialization fails
+		hd, _ = hashids.New()
+	}
+}
+
+// Encode a race ID to a short string
+func encodeRaceID(raceID string) (string, error) {
+	// Hash the race ID to a fixed size
+	hash := md5.Sum([]byte(raceID))
+	id := binary.BigEndian.Uint64(hash[:8])
+
+	// Encode the hashed ID to a short string
+	encoded, err := hd.Encode([]int{int(id)})
+	if err != nil {
+		return "", err
+	}
+
+	return encoded, nil
+}
+
+// Decode a short string to a race ID
+func decodeRaceID(encodedID string) (string, error) {
+	// Decode the short string to an int
+	decoded := hd.Decode(encodedID)
+	if len(decoded) == 0 {
+		return "", fmt.Errorf("failed to decode ID")
+	}
+
+	// Convert the decoded int back to a race ID
+	raceID := fmt.Sprintf("%x", decoded[0])
+	return raceID, nil
 }

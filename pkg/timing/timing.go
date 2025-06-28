@@ -57,13 +57,19 @@ type TimingSystem struct {
 	results map[int]*TimingResults
 	running bool
 	status  component.ComponentStatus
+	raceID  string // Add race ID for logging context
 }
 
 func NewTimingSystem() *TimingSystem {
+	return NewTimingSystemWithRaceID("")
+}
+
+func NewTimingSystemWithRaceID(raceID string) *TimingSystem {
 	return &TimingSystem{
 		id:      events.ComponentTimingSystem,
 		beams:   make(map[string]*TimingBeam),
 		results: make(map[int]*TimingResults),
+		raceID:  raceID,
 		status: component.ComponentStatus{
 			ID:       events.ComponentTimingSystem,
 			Status:   "stopped",
@@ -251,6 +257,17 @@ func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 	}
 }
 
+func (ts *TimingSystem) getShortHash() string {
+	if ts.raceID == "" {
+		return ""
+	}
+	// Generate a simple 8-character hash from the race ID
+	if len(ts.raceID) >= 8 {
+		return ts.raceID[:8]
+	}
+	return ts.raceID
+}
+
 func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -259,13 +276,19 @@ func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int
 		beam.IsTriggered = true
 		beam.LastTrigger = time.Now()
 
+		shortHash := ts.getShortHash()
+		hashPrefix := ""
+		if shortHash != "" {
+			hashPrefix = fmt.Sprintf("[%s] ", shortHash)
+		}
+
 		// Check if results exist for this lane before accessing
 		if result, exists := ts.results[lane]; exists && !result.StartTime.IsZero() {
-			fmt.Printf("⚡ libdrag: Beam triggered: %s (Lane %d) at %.3fs\n",
-				beamID, lane, time.Since(result.StartTime).Seconds())
+			fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) at %.3fs\n",
+				hashPrefix, beamID, lane, time.Since(result.StartTime).Seconds())
 		} else {
-			fmt.Printf("⚡ libdrag: Beam triggered: %s (Lane %d) - race not yet started\n",
-				beamID, lane)
+			fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) - race not yet started\n",
+				hashPrefix, beamID, lane)
 		}
 
 		// Record timing event only if results exist

@@ -104,6 +104,9 @@ func TestMultipleRaces(t *testing.T) {
 				return
 			}
 
+			shortID := api.GetShortRaceID(raceID)
+			t.Logf("Started race %d with ID: %s (short: %s)", raceIndex+1, raceID, shortID)
+
 			// Wait for completion of this specific race
 			for j := 0; j < 150; j++ { // 15 second timeout
 				if api.IsRaceCompleteByID(raceID) {
@@ -113,14 +116,16 @@ func TestMultipleRaces(t *testing.T) {
 			}
 
 			if !api.IsRaceCompleteByID(raceID) {
-				results[raceIndex] = fmt.Errorf("Race %d (ID: %s) did not complete", raceIndex+1, raceID)
+				results[raceIndex] = fmt.Errorf("Race %d (%s) did not complete", raceIndex+1, shortID)
 				return
 			}
+
+			t.Logf("Race %d (%s) completed successfully", raceIndex+1, shortID)
 
 			// Verify we can get results for this specific race
 			raceResults := api.GetResultsJSONByID(raceID)
 			if raceResults == "" || raceResults == "{}" {
-				results[raceIndex] = fmt.Errorf("Race %d (ID: %s) returned empty results", raceIndex+1, raceID)
+				results[raceIndex] = fmt.Errorf("Race %d (%s) returned empty results", raceIndex+1, shortID)
 			}
 		}(i)
 	}
@@ -163,6 +168,9 @@ func TestConcurrentRaces(t *testing.T) {
 				return
 			}
 
+			shortID := api.GetShortRaceID(raceID)
+			t.Logf("Started concurrent race %d (%s)", raceIndex, shortID)
+
 			// Wait for this specific race to complete
 			for j := 0; j < 150; j++ { // 15 second timeout
 				if api.IsRaceCompleteByID(raceID) {
@@ -172,7 +180,9 @@ func TestConcurrentRaces(t *testing.T) {
 			}
 
 			if !api.IsRaceCompleteByID(raceID) {
-				results[raceIndex] = fmt.Errorf("race %s did not complete", raceID)
+				results[raceIndex] = fmt.Errorf("race %s did not complete", shortID)
+			} else {
+				t.Logf("Concurrent race %d (%s) completed", raceIndex, shortID)
 			}
 		}(i)
 	}
@@ -207,6 +217,11 @@ func TestRaceIsolation(t *testing.T) {
 		t.Fatalf("StartRace 2 failed: %v", err)
 	}
 
+	shortID1 := api.GetShortRaceID(raceID1)
+	shortID2 := api.GetShortRaceID(raceID2)
+
+	t.Logf("Started isolation test with races %s and %s", shortID1, shortID2)
+
 	// Verify they have different IDs
 	if raceID1 == raceID2 {
 		t.Fatal("Race IDs should be different for concurrent races")
@@ -219,6 +234,8 @@ func TestRaceIsolation(t *testing.T) {
 	if status1 == status2 {
 		t.Fatal("Race statuses should be independent")
 	}
+
+	t.Logf("Race isolation test passed: %s and %s have independent statuses", shortID1, shortID2)
 }
 
 // TestMaxConcurrentRaces tests that the system respects concurrency limits
@@ -278,6 +295,7 @@ func TestUniqueRaceIdentifiers(t *testing.T) {
 	// Start multiple races and collect their IDs
 	numRaces := 5
 	raceIDs := make([]string, numRaces)
+	shortIDs := make([]string, numRaces)
 
 	for i := 0; i < numRaces; i++ {
 		raceID, err := api.StartRaceWithID()
@@ -285,6 +303,9 @@ func TestUniqueRaceIdentifiers(t *testing.T) {
 			t.Fatalf("Failed to start race %d: %v", i, err)
 		}
 		raceIDs[i] = raceID
+		shortIDs[i] = api.GetShortRaceID(raceID)
+
+		t.Logf("Created race %d with short ID: %s", i+1, shortIDs[i])
 
 		// Verify ID is not empty
 		if raceID == "" {
@@ -308,16 +329,17 @@ func TestUniqueRaceIdentifiers(t *testing.T) {
 
 	// Verify we can get independent status for each race
 	for i, raceID := range raceIDs {
+		shortID := shortIDs[i]
 		status := api.GetRaceStatusJSONByID(raceID)
 		if status == "{\"error\":\"race not found\"}" {
-			t.Fatalf("Race %d with ID %s not found", i, raceID)
+			t.Fatalf("Race %d (%s) not found", i, shortID)
 		}
 
 		results := api.GetResultsJSONByID(raceID)
 		if results == "{\"error\":\"race not found\"}" {
-			t.Fatalf("Results for race %d with ID %s not found", i, raceID)
+			t.Fatalf("Results for race %d (%s) not found", i, shortID)
 		}
 	}
 
-	t.Logf("Successfully created %d races with unique IDs: %v", numRaces, raceIDs)
+	t.Logf("Successfully created %d races with short IDs: %v", numRaces, shortIDs)
 }
