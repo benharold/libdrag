@@ -2,6 +2,7 @@ package config
 
 import (
 	"testing"
+	"time"
 )
 
 func TestNewDefaultConfig(t *testing.T) {
@@ -17,9 +18,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	}
 
 	// Verify essential beams exist
-	expectedBeams := []string{"pre_stage_L", "pre_stage_R", "stage_L", "stage_R",
-		"sixty_foot_L", "sixty_foot_R", "eighth_mile_L", "eighth_mile_R",
-		"quarter_mile_L", "quarter_mile_R"}
+	expectedBeams := []string{"pre_stage", "stage", "60_foot", "330_foot", "660_foot", "1000_foot", "1320_foot"}
 
 	for _, beamID := range expectedBeams {
 		if _, exists := trackConfig.BeamLayout[beamID]; !exists {
@@ -33,12 +32,17 @@ func TestTreeConfig(t *testing.T) {
 	treeConfig := cfg.GetTreeConfig()
 
 	// Verify tree config has reasonable defaults
-	if treeConfig.PreStageTimeoutSeconds <= 0 {
-		t.Fatal("PreStageTimeoutSeconds should be positive")
+	if treeConfig.PreStageTimeout <= 0 {
+		t.Fatal("PreStageTimeout should be positive")
 	}
 
-	if treeConfig.StageTimeoutSeconds <= 0 {
-		t.Fatal("StageTimeoutSeconds should be positive")
+	if treeConfig.StageTimeout <= 0 {
+		t.Fatal("StageTimeout should be positive")
+	}
+
+	// Verify timing values are reasonable
+	if treeConfig.GreenDelay != 400*time.Millisecond {
+		t.Fatal("GreenDelay should be 400ms for pro tree")
 	}
 }
 
@@ -49,23 +53,18 @@ func TestBeamConfigValidation(t *testing.T) {
 	// Verify beam positions are logical
 	beams := trackConfig.BeamLayout
 
-	// Pre-stage should be before stage
-	if beams["pre_stage_L"].Position >= beams["stage_L"].Position {
-		t.Fatal("Pre-stage should be before stage position")
+	// Pre-stage should be before starting line
+	if beams["pre_stage"].Position >= 0 {
+		t.Fatal("Pre-stage beam should be before starting line (negative position)")
 	}
 
-	// Stage should be before sixty foot
-	if beams["stage_L"].Position >= beams["sixty_foot_L"].Position {
-		t.Fatal("Stage should be before sixty foot position")
+	// Stage beam should be at starting line
+	if beams["stage"].Position != 0 {
+		t.Fatal("Stage beam should be at starting line (position 0)")
 	}
 
-	// Sixty foot should be before eighth mile
-	if beams["sixty_foot_L"].Position >= beams["eighth_mile_L"].Position {
-		t.Fatal("Sixty foot should be before eighth mile position")
-	}
-
-	// Eighth mile should be before quarter mile
-	if beams["eighth_mile_L"].Position >= beams["quarter_mile_L"].Position {
-		t.Fatal("Eighth mile should be before quarter mile position")
+	// Quarter mile should be at 1320 feet
+	if beams["1320_foot"].Position != 1320 {
+		t.Fatal("Quarter mile beam should be at 1320 feet")
 	}
 }

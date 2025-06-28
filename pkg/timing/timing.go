@@ -59,6 +59,8 @@ type TimingSystem struct {
 	status   component.ComponentStatus
 	raceID   string // Add race ID for logging context
 	testMode bool   // Add test mode flag to skip delays
+
+	greenLightTime time.Time // Add green light time for reaction time calculation
 }
 
 func NewTimingSystem() *TimingSystem {
@@ -123,6 +125,8 @@ func (ts *TimingSystem) Initialize(ctx context.Context, bus events.EventBus, cfg
 	// Subscribe to relevant events
 	ts.bus.Subscribe(events.EventRaceStarted, ts.handleRaceStart)
 	ts.bus.Subscribe(events.EventVehicleEntered, ts.handleVehicleEnter)
+	ts.bus.Subscribe(events.EventGreenLight, ts.handleGreenLight)
+	ts.bus.Subscribe(events.EventBeamTriggered, ts.handleBeamTriggered)
 	ts.bus.Subscribe(events.EventRaceReset, ts.handleRaceReset)
 
 	ts.status.Status = "ready"
@@ -163,6 +167,12 @@ func (ts *TimingSystem) HandleEvent(ctx context.Context, event events.Event) err
 		return ts.handleRaceStart(ctx, event)
 	case events.EventVehicleEntered:
 		return ts.handleVehicleEnter(ctx, event)
+	case events.EventGreenLight:
+		return ts.handleGreenLight(ctx, event)
+	case events.EventBeamTriggered:
+		return ts.handleBeamTriggered(ctx, event)
+	case events.EventRaceReset:
+		return ts.handleRaceReset(ctx, event)
 	}
 	return nil
 }
@@ -487,5 +497,117 @@ func (ts *TimingSystem) GetResults(lane int) *TimingResults {
 	if result, exists := ts.results[lane]; exists {
 		return result
 	}
+	return nil
+}
+
+// handleGreenLight records the green light timestamp for reaction time calculations
+func (ts *TimingSystem) handleGreenLight(ctx context.Context, event events.Event) error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	ts.greenLightTime = event.GetTimestamp()
+	fmt.Printf("🟢 libdrag Timing System: Green light at %v\n", ts.greenLightTime)
+
+	// Check for existing stage beam triggers that happened before green light (red light fouls)
+	for _, result := range ts.results {
+		if !result.StartTime.IsZero() {
+			// Vehicle already left starting line before green light
+			reactionTime := result.StartTime.Sub(ts.greenLightTime).Seconds()
+			result.ReactionTime = &reactionTime
+
+			if reactionTime < 0 {
+				result.IsFoul = true
+				result.FoulReason = "red_light"
+				fmt.Printf("🚨 libdrag: Red light foul detected for lane %d (RT: %.3fs)\n", result.Lane, reactionTime)
+			}
+		}
+	}
+
+	return nil
+}
+
+// handleBeamTriggered processes beam trigger events and calculates timing splits
+func (ts *TimingSystem) handleBeamTriggered(ctx context.Context, event events.Event) error {
+	data := event.GetData()
+	beamID, ok := data["beam_id"].(string)
+	if !ok {
+		return fmt.Errorf("invalid beam_id in beam trigger event")
+	}
+
+	lane, ok := data["lane"].(int)
+	if !ok {
+		return fmt.Errorf("invalid lane in beam trigger event")
+	}
+
+	triggerTime := event.GetTimestamp()
+
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	// Update beam state
+	if beam, exists := ts.beams[beamID]; exists {
+		beam.IsTriggered = true
+		beam.LastTrigger = triggerTime
+	}
+
+	// Update timing results if lane exists
+	if result, exists := ts.results[lane]; exists {
+		result.BeamTriggers[beamID] = triggerTime
+
+		// Calculate timing splits based on beam
+		switch beamID {
+		case "stage":
+			// Vehicle left starting line - calculate reaction time
+			if !ts.greenLightTime.IsZero() {
+				reactionTime := triggerTime.Sub(ts.greenLightTime).Seconds()
+				result.ReactionTime = &reactionTime
+				result.StartTime = triggerTime
+
+				// Check for red light (negative reaction time)
+				if reactionTime < 0 {
+					result.IsFoul = true
+					result.FoulReason = "red_light"
+				}
+			}
+
+		case "60_foot":
+			// Calculate 60-foot time from start line
+			if !result.StartTime.IsZero() {
+				sixtyFootTime := triggerTime.Sub(result.StartTime).Seconds()
+				result.SixtyFootTime = &sixtyFootTime
+			}
+
+		case "330_foot":
+			// Calculate 330-foot time from start line
+			if !result.StartTime.IsZero() {
+				time330 := triggerTime.Sub(result.StartTime).Seconds()
+				// Note: Could add ThreeThirtyFootTime field if needed
+				_ = time330
+			}
+
+		case "660_foot":
+			// Calculate eighth-mile time from start line
+			if !result.StartTime.IsZero() {
+				eighthMileTime := triggerTime.Sub(result.StartTime).Seconds()
+				result.EighthMileTime = &eighthMileTime
+			}
+
+		case "1320_foot":
+			// Calculate quarter-mile time from start line
+			if !result.StartTime.IsZero() {
+				quarterMileTime := triggerTime.Sub(result.StartTime).Seconds()
+				result.QuarterMileTime = &quarterMileTime
+				result.IsComplete = true
+
+				// Calculate trap speed (simplified calculation)
+				// Real trap speed uses the speed trap section timing
+				trapSpeed := 1320.0 / quarterMileTime * 0.681818 // Convert ft/s to mph
+				result.TrapSpeed = &trapSpeed
+			}
+		}
+
+		fmt.Printf("🏁 libdrag Timing: Lane %d triggered %s beam at %v\n", lane, beamID, triggerTime)
+	}
+
 	return nil
 }
