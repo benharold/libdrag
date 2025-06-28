@@ -143,6 +143,164 @@ func main() {
 - `GetMaxConcurrentRaces() int` - Get maximum allowed concurrent races
 - `SetMaxConcurrentRaces(max int)` - Set maximum allowed concurrent races
 
+## Testing & Development
+
+### Running Tests
+
+libdrag includes comprehensive unit tests that validate all core drag racing functionality. The tests cover timing calculations, Christmas tree sequences, configuration, and race orchestration.
+
+#### Basic Test Execution
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests for specific packages
+go test ./pkg/timing ./pkg/tree ./pkg/config
+
+# Run a specific test
+go test -v ./pkg/timing -run TestReactionTimeCalculation
+```
+
+#### Test Coverage Reports
+
+##### Generate Coverage Profile
+```bash
+# Generate coverage profile for all packages
+go test -coverprofile=coverage.out ./...
+
+# Generate coverage for specific packages only
+go test -coverprofile=coverage.out ./pkg/timing ./pkg/tree ./pkg/config
+```
+
+##### View Coverage in Terminal
+```bash
+# Show coverage summary
+go test -cover ./...
+
+# Show detailed function-by-function coverage
+go tool cover -func=coverage.out
+
+# Show total coverage percentage
+go tool cover -func=coverage.out | grep "total"
+```
+
+##### Generate HTML Coverage Report
+```bash
+# Generate interactive HTML coverage report
+go tool cover -html=coverage.out -o coverage.html
+
+# Open coverage report in browser (macOS)
+open coverage.html
+
+# Open coverage report in browser (Linux)
+xdg-open coverage.html
+
+# Open coverage report in browser (Windows)
+start coverage.html
+```
+
+#### Coverage Targets by Component
+
+The library maintains high test coverage for core drag racing functionality:
+
+- **🚦 Christmas Tree (`pkg/tree`)**: **80%+ coverage**
+  - Pre-stage/stage light sequences
+  - Pro vs Sportsman tree timing (0.4s vs 0.5s)
+  - Tree arming and error handling
+
+- **⏱️ Timing System (`pkg/timing`)**: **55%+ coverage**
+  - Reaction time calculations
+  - 60-foot, 1/8 mile, 1/4 mile splits
+  - Red light detection (jumping the start)
+  - Speed trap calculations
+
+- **⚙️ Configuration (`pkg/config`)**: **60%+ coverage**
+  - NHRA-standard defaults
+  - Track and beam layout validation
+  - Tree sequence configurations
+
+#### Test Categories
+
+**Unit Tests**: Test individual components in isolation
+```bash
+go test ./pkg/timing -v    # Timing calculations
+go test ./pkg/tree -v      # Christmas tree logic
+go test ./pkg/config -v    # Configuration validation
+```
+
+**Integration Tests**: Test component interactions
+```bash
+go test ./pkg/orchestrator -v  # Race coordination
+go test ./pkg/api -v           # End-to-end API
+```
+
+#### Continuous Integration
+
+For CI/CD pipelines, use these commands:
+
+```bash
+# Run tests with coverage and fail if below threshold
+go test -coverprofile=coverage.out ./... && \
+go tool cover -func=coverage.out | grep "total" | \
+awk '{print $3}' | sed 's/%//' | \
+awk '{if($1<50) exit 1}'
+
+# Generate coverage badge data
+go test -coverprofile=coverage.out ./... && \
+go tool cover -func=coverage.out | grep "total" | \
+awk '{print "Coverage: " $3}'
+```
+
+#### Performance Testing
+
+```bash
+# Run benchmarks
+go test -bench=. ./...
+
+# Run benchmarks with memory profiling
+go test -bench=. -benchmem ./...
+
+# Profile CPU usage during tests
+go test -cpuprofile=cpu.prof ./pkg/timing
+go tool pprof cpu.prof
+```
+
+### Development Guidelines
+
+#### Running the Demo
+
+```bash
+# Build and run the main demo
+go run main.go
+
+# Build and run the command-line demo
+go run cmd/libdrag/main.go
+
+# Build standalone binary
+go build -o libdrag-demo main.go
+./libdrag-demo
+```
+
+#### Code Quality Checks
+
+```bash
+# Format code
+go fmt ./...
+
+# Lint code (requires golangci-lint)
+golangci-lint run
+
+# Vet code for issues
+go vet ./...
+
+# Check for unused dependencies
+go mod tidy
+```
+
 ## Architecture
 
 The library is structured with clear separation of concerns:

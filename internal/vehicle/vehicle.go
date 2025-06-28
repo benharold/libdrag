@@ -6,7 +6,6 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
-	"github.com/benharold/libdrag/pkg/events"
 )
 
 // VehicleInterface defines vehicle monitoring
@@ -19,45 +18,68 @@ type VehicleInterface interface {
 
 // SimpleVehicle implements a basic vehicle for testing
 type SimpleVehicle struct {
-	id       events.ComponentID
+	id       string
 	lane     int
-	staged   bool
 	position float64
+	staged   bool
 	status   component.ComponentStatus
 }
 
 func NewSimpleVehicle(lane int) *SimpleVehicle {
 	return &SimpleVehicle{
-		id:   events.ComponentID(fmt.Sprintf("vehicle_%d", lane)),
-		lane: lane,
+		id:       fmt.Sprintf("vehicle_%d", lane),
+		lane:     lane,
+		position: 0.0,
+		staged:   false,
 		status: component.ComponentStatus{
-			ID:       events.ComponentID(fmt.Sprintf("vehicle_%d", lane)),
+			ID:       fmt.Sprintf("vehicle_%d", lane),
 			Status:   "ready",
 			Metadata: make(map[string]interface{}),
 		},
 	}
 }
 
-func (sv *SimpleVehicle) GetID() events.ComponentID            { return sv.id }
-func (sv *SimpleVehicle) GetLane() int                         { return sv.lane }
-func (sv *SimpleVehicle) IsStaged() bool                       { return sv.staged }
-func (sv *SimpleVehicle) GetPosition() float64                 { return sv.position }
-func (sv *SimpleVehicle) GetStatus() component.ComponentStatus { return sv.status }
+func (v *SimpleVehicle) GetID() string {
+	return v.id
+}
 
-func (sv *SimpleVehicle) Initialize(ctx context.Context, bus events.EventBus, config config.Config) error {
+func (v *SimpleVehicle) GetLane() int {
+	return v.lane
+}
+
+func (v *SimpleVehicle) IsStaged() bool {
+	return v.staged
+}
+
+func (v *SimpleVehicle) GetPosition() float64 {
+	return v.position
+}
+
+func (v *SimpleVehicle) GetStatus() component.ComponentStatus {
+	return v.status
+}
+
+func (v *SimpleVehicle) Initialize(ctx context.Context, cfg config.Config) error {
+	v.status.Status = "ready"
 	return nil
 }
 
-func (sv *SimpleVehicle) Start(ctx context.Context) error {
-	sv.status.Status = "running"
+func (v *SimpleVehicle) Start(ctx context.Context) error {
+	v.status.Status = "running"
 	return nil
 }
 
-func (sv *SimpleVehicle) Stop() error {
-	sv.status.Status = "stopped"
+func (v *SimpleVehicle) Stop() error {
+	v.status.Status = "stopped"
 	return nil
 }
 
-func (sv *SimpleVehicle) HandleEvent(ctx context.Context, event events.Event) error {
-	return nil
+// SetStaged sets the vehicle staging status
+func (v *SimpleVehicle) SetStaged(staged bool) {
+	v.staged = staged
+}
+
+// SetPosition sets the vehicle position on track
+func (v *SimpleVehicle) SetPosition(position float64) {
+	v.position = position
 }
