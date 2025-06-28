@@ -255,3 +255,43 @@ func (ro *RaceOrchestrator) determineWinner() {
 		}
 	}
 }
+
+func (ro *RaceOrchestrator) Reset() error {
+	ro.mu.Lock()
+	defer ro.mu.Unlock()
+
+	// Only allow reset if race is complete, aborted, or in error state
+	if ro.status.State != RaceStateComplete && ro.status.State != RaceStateAborted && ro.status.State != RaceStateError {
+		return fmt.Errorf("cannot reset race: current state is %s", ro.status.State)
+	}
+
+	// Reset race status
+	ro.status.State = RaceStateIdle
+	ro.status.StartTime = time.Time{}
+	ro.status.ActiveLanes = make([]int, 0)
+	ro.status.LastError = nil
+
+	// Clear event log
+	ro.eventLog = make([]events.Event, 0)
+
+	fmt.Println("🔄 libdrag Race Orchestrator: Race reset to idle state")
+
+	// Publish reset event
+	event := &events.BaseEvent{
+		Type:      events.EventRaceReset,
+		Timestamp: time.Now(),
+		Source:    events.ComponentOrchestrator,
+		Data:      map[string]interface{}{},
+	}
+	ro.bus.Publish(context.Background(), event)
+
+	return nil
+}
+
+// IsRaceComplete returns true if the race is in a completed state
+func (ro *RaceOrchestrator) IsRaceComplete() bool {
+	ro.mu.RLock()
+	defer ro.mu.RUnlock()
+
+	return ro.status.State == RaceStateComplete || ro.status.State == RaceStateAborted || ro.status.State == RaceStateError
+}

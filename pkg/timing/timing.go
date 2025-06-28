@@ -94,6 +94,7 @@ func (ts *TimingSystem) Initialize(ctx context.Context, bus events.EventBus, cfg
 	// Subscribe to relevant events
 	ts.bus.Subscribe(events.EventRaceStarted, ts.handleRaceStart)
 	ts.bus.Subscribe(events.EventVehicleEntered, ts.handleVehicleEnter)
+	ts.bus.Subscribe(events.EventRaceReset, ts.handleRaceReset)
 
 	ts.status.Status = "ready"
 	return nil
@@ -173,6 +174,31 @@ func (ts *TimingSystem) handleVehicleEnter(ctx context.Context, event events.Eve
 	return nil
 }
 
+func (ts *TimingSystem) handleRaceReset(ctx context.Context, event events.Event) error {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	fmt.Println("🔄 libdrag Timing System: Resetting for new race")
+
+	// Stop any running simulations
+	ts.running = false
+
+	// Reset timing results
+	ts.results = make(map[int]*TimingResults)
+
+	// Reset beam states
+	for _, beam := range ts.beams {
+		beam.IsTriggered = false
+		beam.LastTrigger = time.Time{}
+	}
+
+	// Restart the timing system and start a new simulation
+	ts.running = true
+	go ts.simulateBeamTriggers(ctx)
+
+	return nil
+}
+
 // simulateBeamTriggers simulates realistic beam triggers for demonstration
 func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 	time.Sleep(2 * time.Second) // Wait for race to start
@@ -205,7 +231,7 @@ func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 	}{
 		{"sixty_foot_L", "sixty_foot_R", 950 * time.Millisecond, 980 * time.Millisecond},
 		{"eighth_mile_L", "eighth_mile_R", 4200 * time.Millisecond, 4350 * time.Millisecond},
-		{"quarter_mile_L", "quarter_mile_R", 3100 * time.Millisecond, 3250 * time.Millisecond},
+		{"quarter_mile_L", "quarter_mile_R", 7300 * time.Millisecond, 7500 * time.Millisecond}, // Fixed timing to be after eighth mile
 	}
 
 	for _, seq := range beamSequence {
@@ -233,11 +259,20 @@ func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int
 		beam.IsTriggered = true
 		beam.LastTrigger = time.Now()
 
-		fmt.Printf("⚡ libdrag: Beam triggered: %s (Lane %d) at %.3fs\n",
-			beamID, lane, time.Since(ts.results[lane].StartTime).Seconds())
+		// Check if results exist for this lane before accessing
+		if result, exists := ts.results[lane]; exists && !result.StartTime.IsZero() {
+			fmt.Printf("⚡ libdrag: Beam triggered: %s (Lane %d) at %.3fs\n",
+				beamID, lane, time.Since(result.StartTime).Seconds())
+		} else {
+			fmt.Printf("⚡ libdrag: Beam triggered: %s (Lane %d) - race not yet started\n",
+				beamID, lane)
+		}
 
-		// Record timing event
+		// Record timing event only if results exist
 		if result, exists := ts.results[lane]; exists {
+			if result.BeamTriggers == nil {
+				result.BeamTriggers = make(map[string]time.Time)
+			}
 			result.BeamTriggers[beamID] = beam.LastTrigger
 			ts.updateTimingMilestones(beamID, result)
 		}
@@ -253,30 +288,6 @@ func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int
 				"position": beam.Position,
 			},
 		}
-
-		// Special handling for staging beams
-		var eventType events.EventType
-		switch beamID {
-		case "pre_stage_L", "pre_stage_R":
-			eventType = events.EventPreStageOn
-		case "stage_L", "stage_R":
-			eventType = events.EventStageOn
-		default:
-			eventType = events.EventBeamTriggered
-		}
-
-		if eventType != events.EventBeamTriggered {
-			stageEvent := &events.BaseEvent{
-				Type:      eventType,
-				Timestamp: time.Now(),
-				Source:    ts.id,
-				Data: map[string]interface{}{
-					"lane": lane,
-				},
-			}
-			ts.bus.Publish(ctx, stageEvent)
-		}
-
 		ts.bus.Publish(ctx, event)
 	}
 }

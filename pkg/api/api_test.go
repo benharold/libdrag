@@ -1,0 +1,323 @@
+package api
+
+import (
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestNewLibDragAPI(t *testing.T) {
+	api := NewLibDragAPI()
+	if api == nil {
+		t.Fatal("NewLibDragAPI returned nil")
+	}
+	if api.orchestrators == nil {
+		t.Fatal("orchestrators map not initialized")
+	}
+}
+
+func TestInitialize(t *testing.T) {
+	api := NewLibDragAPI()
+
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+}
+
+func TestBasicRaceFlow(t *testing.T) {
+	api := NewLibDragAPI()
+
+	// Initialize
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	// Start race
+	err = api.StartRace()
+	if err != nil {
+		t.Fatalf("StartRace failed: %v", err)
+	}
+
+	// Wait for race completion (with timeout)
+	timeout := time.After(15 * time.Second)
+	ticker := time.Tick(100 * time.Millisecond)
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatal("Race did not complete within timeout")
+		case <-ticker:
+			if api.IsRaceComplete() {
+				goto raceComplete
+			}
+		}
+	}
+
+raceComplete:
+	// Verify we can get results
+	results := api.GetResultsJSON()
+	if results == "" {
+		t.Error("GetResultsJSON returned empty string")
+	}
+
+	treeStatus := api.GetTreeStatusJSON()
+	if treeStatus == "" {
+		t.Error("GetTreeStatusJSON returned empty string")
+	}
+
+	raceStatus := api.GetRaceStatusJSON()
+	if raceStatus == "" {
+		t.Error("GetRaceStatusJSON returned empty string")
+	}
+
+	// Clean shutdown
+	api.Stop()
+}
+
+func TestMultipleRaces(t *testing.T) {
+	api := NewLibDragAPI()
+
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+	defer api.Stop()
+
+	// Run multiple races concurrently to ensure system stability
+	numRaces := 3
+	var wg sync.WaitGroup
+	results := make([]error, numRaces)
+
+	// Start all races concurrently
+	for i := 0; i < numRaces; i++ {
+		wg.Add(1)
+		go func(raceIndex int) {
+			defer wg.Done()
+
+			// Start race with unique ID
+			raceID, err := api.StartRaceWithID()
+			if err != nil {
+				results[raceIndex] = fmt.Errorf("StartRace %d failed: %v", raceIndex+1, err)
+				return
+			}
+
+			// Wait for completion of this specific race
+			for j := 0; j < 150; j++ { // 15 second timeout
+				if api.IsRaceCompleteByID(raceID) {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			if !api.IsRaceCompleteByID(raceID) {
+				results[raceIndex] = fmt.Errorf("Race %d (ID: %s) did not complete", raceIndex+1, raceID)
+				return
+			}
+
+			// Verify we can get results for this specific race
+			raceResults := api.GetResultsJSONByID(raceID)
+			if raceResults == "" || raceResults == "{}" {
+				results[raceIndex] = fmt.Errorf("Race %d (ID: %s) returned empty results", raceIndex+1, raceID)
+			}
+		}(i)
+	}
+
+	// Wait for all races to complete
+	wg.Wait()
+
+	// Check that all races completed successfully
+	for i, err := range results {
+		if err != nil {
+			t.Fatalf("Race %d failed: %v", i+1, err)
+		}
+	}
+}
+
+// TestConcurrentRaces tests that multiple races can run simultaneously
+func TestConcurrentRaces(t *testing.T) {
+	api := NewLibDragAPI()
+
+	// Initialize
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	numConcurrentRaces := 3
+	var wg sync.WaitGroup
+	results := make([]error, numConcurrentRaces)
+
+	// Start multiple races concurrently
+	for i := 0; i < numConcurrentRaces; i++ {
+		wg.Add(1)
+		go func(raceIndex int) {
+			defer wg.Done()
+
+			// Start race and get race ID
+			raceID, err := api.StartRaceWithID()
+			if err != nil {
+				results[raceIndex] = err
+				return
+			}
+
+			// Wait for this specific race to complete
+			for j := 0; j < 150; j++ { // 15 second timeout
+				if api.IsRaceCompleteByID(raceID) {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			if !api.IsRaceCompleteByID(raceID) {
+				results[raceIndex] = fmt.Errorf("race %s did not complete", raceID)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Check that all races completed successfully
+	for i, err := range results {
+		if err != nil {
+			t.Fatalf("Race %d failed: %v", i, err)
+		}
+	}
+}
+
+// TestRaceIsolation tests that races don't interfere with each other
+func TestRaceIsolation(t *testing.T) {
+	api := NewLibDragAPI()
+
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	// Start two races
+	raceID1, err := api.StartRaceWithID()
+	if err != nil {
+		t.Fatalf("StartRace 1 failed: %v", err)
+	}
+
+	raceID2, err := api.StartRaceWithID()
+	if err != nil {
+		t.Fatalf("StartRace 2 failed: %v", err)
+	}
+
+	// Verify they have different IDs
+	if raceID1 == raceID2 {
+		t.Fatal("Race IDs should be different for concurrent races")
+	}
+
+	// Verify we can get independent status for each race
+	status1 := api.GetRaceStatusJSONByID(raceID1)
+	status2 := api.GetRaceStatusJSONByID(raceID2)
+
+	if status1 == status2 {
+		t.Fatal("Race statuses should be independent")
+	}
+}
+
+// TestMaxConcurrentRaces tests that the system respects concurrency limits
+func TestMaxConcurrentRaces(t *testing.T) {
+	api := NewLibDragAPI()
+
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+
+	maxRaces := api.GetMaxConcurrentRaces()
+	if maxRaces <= 0 {
+		t.Fatal("Max concurrent races should be positive")
+	}
+
+	// Start maximum number of races
+	raceIDs := make([]string, maxRaces)
+	for i := 0; i < maxRaces; i++ {
+		raceID, err := api.StartRaceWithID()
+		if err != nil {
+			t.Fatalf("Failed to start race %d: %v", i, err)
+		}
+		raceIDs[i] = raceID
+	}
+
+	// Try to start one more race - should fail
+	_, err = api.StartRaceWithID()
+	if err == nil {
+		t.Fatal("Should not be able to start more than max concurrent races")
+	}
+
+	// Complete one race and try again
+	// For this test, we'll simulate completion by calling a cleanup method
+	err = api.CompleteRace(raceIDs[0])
+	if err != nil {
+		t.Fatalf("Failed to complete race: %v", err)
+	}
+
+	// Now we should be able to start another race
+	_, err = api.StartRaceWithID()
+	if err != nil {
+		t.Fatalf("Should be able to start race after completing one: %v", err)
+	}
+}
+
+// TestUniqueRaceIdentifiers tests that each race gets a unique identifier
+func TestUniqueRaceIdentifiers(t *testing.T) {
+	api := NewLibDragAPI()
+
+	err := api.Initialize()
+	if err != nil {
+		t.Fatalf("Initialize failed: %v", err)
+	}
+	defer api.Stop()
+
+	// Start multiple races and collect their IDs
+	numRaces := 5
+	raceIDs := make([]string, numRaces)
+
+	for i := 0; i < numRaces; i++ {
+		raceID, err := api.StartRaceWithID()
+		if err != nil {
+			t.Fatalf("Failed to start race %d: %v", i, err)
+		}
+		raceIDs[i] = raceID
+
+		// Verify ID is not empty
+		if raceID == "" {
+			t.Fatalf("Race %d got empty ID", i)
+		}
+
+		// Verify ID format (should be a valid UUID)
+		if len(raceID) != 36 {
+			t.Fatalf("Race %d ID '%s' doesn't appear to be a valid UUID", i, raceID)
+		}
+	}
+
+	// Verify all IDs are unique
+	idSet := make(map[string]bool)
+	for i, id := range raceIDs {
+		if idSet[id] {
+			t.Fatalf("Duplicate race ID found: %s (race %d)", id, i)
+		}
+		idSet[id] = true
+	}
+
+	// Verify we can get independent status for each race
+	for i, raceID := range raceIDs {
+		status := api.GetRaceStatusJSONByID(raceID)
+		if status == "{\"error\":\"race not found\"}" {
+			t.Fatalf("Race %d with ID %s not found", i, raceID)
+		}
+
+		results := api.GetResultsJSONByID(raceID)
+		if results == "{\"error\":\"race not found\"}" {
+			t.Fatalf("Results for race %d with ID %s not found", i, raceID)
+		}
+	}
+
+	t.Logf("Successfully created %d races with unique IDs: %v", numRaces, raceIDs)
+}

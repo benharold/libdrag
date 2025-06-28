@@ -26,6 +26,7 @@ const (
 	EventRaceArmed   EventType = "race_armed"
 	EventRaceStarted EventType = "race_started"
 	EventRaceAborted EventType = "race_aborted"
+	EventRaceReset   EventType = "race_reset"
 	EventRunComplete EventType = "run_complete"
 	EventSystemReady EventType = "system_ready"
 	EventSystemError EventType = "system_error"
