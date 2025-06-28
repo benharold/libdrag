@@ -253,30 +253,52 @@ func (ts *TimingSystem) simulateBeamTriggers(ctx context.Context) {
 	// Wait for green light (approximately)
 	ts.sleep(1 * time.Second)
 
-	// Simulate race progression with realistic times
-	beamSequence := []struct {
-		beamL, beamR   string
-		delayL, delayR time.Duration
-	}{
-		{"sixty_foot_L", "sixty_foot_R", 950 * time.Millisecond, 980 * time.Millisecond},
-		{"eighth_mile_L", "eighth_mile_R", 4200 * time.Millisecond, 4350 * time.Millisecond},
-		{"quarter_mile_L", "quarter_mile_R", 7300 * time.Millisecond, 7500 * time.Millisecond}, // Fixed timing to be after eighth mile
-	}
+	// In test mode, we'll trigger beams quickly but with simulated realistic times
+	if ts.testMode {
+		// Define realistic race times for simulation
+		realisticTimes := []struct {
+			beamL, beamR                   string
+			simulatedTimeL, simulatedTimeR float64 // Times in seconds from race start
+		}{
+			{"sixty_foot_L", "sixty_foot_R", 0.950, 0.980},     // 60ft times
+			{"eighth_mile_L", "eighth_mile_R", 4.200, 4.350},   // 1/8 mile times
+			{"quarter_mile_L", "quarter_mile_R", 7.300, 7.500}, // 1/4 mile times
+		}
 
-	for _, seq := range beamSequence {
-		go func(beamL string, delayL time.Duration, lane int) {
-			ts.sleep(delayL)
+		// Trigger beams quickly but record realistic times
+		for _, timing := range realisticTimes {
+			ts.sleep(10 * time.Millisecond) // Very short delay for test execution speed
 			if ts.running {
-				ts.triggerBeam(ctx, beamL, lane)
+				ts.triggerBeamWithSimulatedTime(ctx, timing.beamL, 1, timing.simulatedTimeL)
+				ts.triggerBeamWithSimulatedTime(ctx, timing.beamR, 2, timing.simulatedTimeR)
 			}
-		}(seq.beamL, seq.delayL, 1)
+		}
+	} else {
+		// Production mode - use realistic delays
+		beamSequence := []struct {
+			beamL, beamR   string
+			delayL, delayR time.Duration
+		}{
+			{"sixty_foot_L", "sixty_foot_R", 950 * time.Millisecond, 980 * time.Millisecond},
+			{"eighth_mile_L", "eighth_mile_R", 4200 * time.Millisecond, 4350 * time.Millisecond},
+			{"quarter_mile_L", "quarter_mile_R", 7300 * time.Millisecond, 7500 * time.Millisecond},
+		}
 
-		go func(beamR string, delayR time.Duration, lane int) {
-			ts.sleep(delayR)
-			if ts.running {
-				ts.triggerBeam(ctx, beamR, lane)
-			}
-		}(seq.beamR, seq.delayR, 2)
+		for _, seq := range beamSequence {
+			go func(beamL string, delayL time.Duration, lane int) {
+				ts.sleep(delayL)
+				if ts.running {
+					ts.triggerBeam(ctx, beamL, lane)
+				}
+			}(seq.beamL, seq.delayL, 1)
+
+			go func(beamR string, delayR time.Duration, lane int) {
+				ts.sleep(delayR)
+				if ts.running {
+					ts.triggerBeam(ctx, beamR, lane)
+				}
+			}(seq.beamR, seq.delayR, 2)
+		}
 	}
 }
 
@@ -338,6 +360,48 @@ func (ts *TimingSystem) triggerBeam(ctx context.Context, beamID string, lane int
 	}
 }
 
+func (ts *TimingSystem) triggerBeamWithSimulatedTime(ctx context.Context, beamID string, lane int, simulatedTime float64) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+
+	if beam, exists := ts.beams[beamID]; exists {
+		beam.IsTriggered = true
+		beam.LastTrigger = time.Now()
+
+		shortHash := ts.getShortHash()
+		hashPrefix := ""
+		if shortHash != "" {
+			hashPrefix = fmt.Sprintf("[%s] ", shortHash)
+		}
+
+		// Display the simulated time instead of actual elapsed time
+		fmt.Printf("⚡ libdrag: %sBeam triggered: %s (Lane %d) at %.3fs\n",
+			hashPrefix, beamID, lane, simulatedTime)
+
+		// Record timing event with simulated time
+		if result, exists := ts.results[lane]; exists {
+			if result.BeamTriggers == nil {
+				result.BeamTriggers = make(map[string]time.Time)
+			}
+			result.BeamTriggers[beamID] = beam.LastTrigger
+			ts.updateTimingMilestonesWithSimulatedTime(beamID, result, simulatedTime)
+		}
+
+		// Publish beam trigger event
+		event := &events.BaseEvent{
+			Type:      events.EventBeamTriggered,
+			Timestamp: time.Now(),
+			Source:    ts.id,
+			Data: map[string]interface{}{
+				"beam_id":  beamID,
+				"lane":     lane,
+				"position": beam.Position,
+			},
+		}
+		ts.bus.Publish(ctx, event)
+	}
+}
+
 func (ts *TimingSystem) updateTimingMilestones(beamID string, result *TimingResults) {
 	elapsed := time.Since(result.StartTime).Seconds()
 
@@ -357,6 +421,45 @@ func (ts *TimingSystem) updateTimingMilestones(beamID string, result *TimingResu
 	case "quarter_mile_L", "quarter_mile_R":
 		if result.QuarterMileTime == nil {
 			result.QuarterMileTime = &elapsed
+			// Calculate trap speed (simplified)
+			speed := 120.0 + rand.Float64()*40.0 // Random speed between 120-160 mph
+			result.TrapSpeed = &speed
+			result.IsComplete = true
+
+			// Publish run complete
+			event := &events.BaseEvent{
+				Type:      events.EventRunComplete,
+				Timestamp: time.Now(),
+				Source:    ts.id,
+				Data: map[string]interface{}{
+					"lane":    result.Lane,
+					"results": result,
+				},
+			}
+			ts.bus.Publish(context.Background(), event)
+		}
+	}
+}
+
+func (ts *TimingSystem) updateTimingMilestonesWithSimulatedTime(beamID string, result *TimingResults, simulatedTime float64) {
+	switch beamID {
+	case "stage_L", "stage_R":
+		if result.ReactionTime == nil {
+			// Simulate a realistic reaction time (0.1-0.8 seconds)
+			reactionTime := 0.1 + rand.Float64()*0.7
+			result.ReactionTime = &reactionTime
+		}
+	case "sixty_foot_L", "sixty_foot_R":
+		if result.SixtyFootTime == nil {
+			result.SixtyFootTime = &simulatedTime
+		}
+	case "eighth_mile_L", "eighth_mile_R":
+		if result.EighthMileTime == nil {
+			result.EighthMileTime = &simulatedTime
+		}
+	case "quarter_mile_L", "quarter_mile_R":
+		if result.QuarterMileTime == nil {
+			result.QuarterMileTime = &simulatedTime
 			// Calculate trap speed (simplified)
 			speed := 120.0 + rand.Float64()*40.0 // Random speed between 120-160 mph
 			result.TrapSpeed = &speed
