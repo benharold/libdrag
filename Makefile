@@ -16,50 +16,71 @@ GOLINT=golangci-lint
 
 .PHONY: all build clean test coverage lint fmt vet deps help
 
+# Default target - show help when no arguments provided
+all: help
+
+## Show this help message
+help:
+	@echo ""
+	@echo "🏁 libdrag - Drag Racing Timing System"
+	@echo "====================================="
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Available targets:"
+	@echo ""
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/## /  /' | column -t -s ':'
+	@echo ""
+	@echo "Examples:"
+	@echo "  make build     - Build the application"
+	@echo "  make test      - Run all tests"
+	@echo "  make coverage  - Run tests with coverage report"
+	@echo "  make clean     - Clean build artifacts"
+	@echo ""
+
 ## Build the application
 build:
 	$(GOBUILD) $(LDFLAGS) -o $(BINARY_NAME) ./cmd/libdrag
 
-## Run tests
+## Run all tests
 test:
 	$(GOTEST) -v ./...
 
-## Run tests with coverage
+## Run tests with coverage report
 coverage:
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 	$(GOCMD) tool cover -func=coverage.out
 
-## Lint the code
+## Lint the code using golangci-lint
 lint:
 	$(GOLINT) run
 
-## Format the code
+## Format the code using gofmt
 fmt:
 	$(GOFMT) -s -w .
 
-## Vet the code
+## Vet the code for potential issues
 vet:
 	$(GOCMD) vet ./...
 
-## Download dependencies
+## Download and tidy dependencies
 deps:
 	$(GOMOD) download
 	$(GOMOD) tidy
 
-## Clean build artifacts
+## Clean build artifacts and temporary files
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
 	rm -f coverage.out coverage.html
 
-## Run all quality checks
+## Run all checks (fmt, vet, lint, test)
 check: fmt vet lint test
 
-## Show help
-help:
-	@echo "Available targets:"
-	@grep -E '^##' $(MAKEFILE_LIST) | sed 's/##//g'
+## Build and run the application
+run: build
+	./$(BINARY_NAME)
 
 ## Install development dependencies
 dev-deps:
