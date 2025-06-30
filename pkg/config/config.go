@@ -4,10 +4,10 @@ import "time"
 
 // Config holds system-wide configuration
 type Config interface {
-	GetTrackConfig() TrackConfig
-	GetTimingConfig() TimingConfig
-	GetTreeConfig() TreeSequenceConfig
-	GetSafetyConfig() SafetyConfig
+	Track() TrackConfig
+	Timing() TimingConfig
+	Tree() TreeSequenceConfig
+	Safety() SafetyConfig
 }
 
 // TrackConfig defines track specifications
@@ -59,32 +59,32 @@ type SafetyConfig struct {
 
 // DefaultConfig implements Config interface
 type DefaultConfig struct {
-	Track  TrackConfig        `json:"track"`
-	Timing TimingConfig       `json:"timing"`
-	Tree   TreeSequenceConfig `json:"tree"`
-	Safety SafetyConfig       `json:"safety"`
+	TrackConfig  TrackConfig        `json:"track"`
+	TimingConfig TimingConfig       `json:"timing"`
+	TreeConfig   TreeSequenceConfig `json:"tree"`
+	SafetyConfig SafetyConfig       `json:"safety"`
 }
 
-func (c *DefaultConfig) GetTrackConfig() TrackConfig {
-	return c.Track
+func (c *DefaultConfig) Track() TrackConfig {
+	return c.TrackConfig
 }
 
-func (c *DefaultConfig) GetTimingConfig() TimingConfig {
-	return c.Timing
+func (c *DefaultConfig) Timing() TimingConfig {
+	return c.TimingConfig
 }
 
-func (c *DefaultConfig) GetTreeConfig() TreeSequenceConfig {
-	return c.Tree
+func (c *DefaultConfig) Tree() TreeSequenceConfig {
+	return c.TreeConfig
 }
 
-func (c *DefaultConfig) GetSafetyConfig() SafetyConfig {
-	return c.Safety
+func (c *DefaultConfig) Safety() SafetyConfig {
+	return c.SafetyConfig
 }
 
 // NewDefaultConfig creates a default configuration for NHRA-style drag racing
 func NewDefaultConfig() *DefaultConfig {
 	return &DefaultConfig{
-		Track: TrackConfig{
+		TrackConfig: TrackConfig{
 			Length:    1320, // Quarter mile in feet
 			LaneCount: 2,
 			LaneWidth: 12, // 12 feet per lane
@@ -133,19 +133,19 @@ func NewDefaultConfig() *DefaultConfig {
 				},
 			},
 		},
-		Timing: TimingConfig{
+		TimingConfig: TimingConfig{
 			Precision:       time.Microsecond,
 			SpeedTrapLength: 66, // 66 feet for speed trap calculation
 			AutoStart:       true,
 		},
-		Tree: TreeSequenceConfig{
+		TreeConfig: TreeSequenceConfig{
 			Type:            TreeSequencePro,        // Default to Pro tree
 			AmberDelay:      500 * time.Millisecond, // 0.5 seconds for sportsman
 			GreenDelay:      400 * time.Millisecond, // 0.4 seconds for pro tree
 			PreStageTimeout: 30 * time.Second,
 			StageTimeout:    10 * time.Second,
 		},
-		Safety: SafetyConfig{
+		SafetyConfig: SafetyConfig{
 			EmergencyStopEnabled: true,
 			MaxReactionTime:      2 * time.Second,
 			MinStagingTime:       500 * time.Millisecond,

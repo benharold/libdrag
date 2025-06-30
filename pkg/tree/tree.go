@@ -80,7 +80,7 @@ func (ct *ChristmasTree) Initialize(ctx context.Context, cfg config.Config) erro
 	ct.config = cfg
 
 	// Initialize light states for all lanes
-	trackConfig := cfg.GetTrackConfig()
+	trackConfig := cfg.Track()
 	for lane := 1; lane <= trackConfig.LaneCount; lane++ {
 		ct.status.LightStates[lane] = make(map[LightType]LightState)
 		for _, lightType := range []LightType{LightPreStage, LightStage, LightAmber1, LightAmber2, LightAmber3, LightGreen, LightRed} {
@@ -134,7 +134,7 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 	fmt.Printf("🟡 libdrag: Pre-stage light ON for lane %d\n", lane)
 
 	// Check if both lanes are pre-staged to arm the race
-	trackConfig := ct.config.GetTrackConfig()
+	trackConfig := ct.config.Track()
 	allPreStaged := true
 	for laneNum := 1; laneNum <= trackConfig.LaneCount; laneNum++ {
 		if !ct.lanesPreStaged[laneNum] {
@@ -173,7 +173,7 @@ func (ct *ChristmasTree) AllStaged() bool {
 		return false
 	}
 
-	trackConfig := ct.config.GetTrackConfig()
+	trackConfig := ct.config.Track()
 	for laneNum := 1; laneNum <= trackConfig.LaneCount; laneNum++ {
 		if !ct.lanesStaged[laneNum] {
 			return false
@@ -213,7 +213,7 @@ func (ct *ChristmasTree) runSequence(sequenceType config.TreeSequenceType) time.
 		ct.mu.Unlock()
 	}()
 
-	treeConfig := ct.config.GetTreeConfig()
+	treeConfig := ct.config.Tree()
 
 	switch sequenceType {
 	case config.TreeSequencePro:
@@ -277,7 +277,7 @@ func (ct *ChristmasTree) runSportsmanSequence(cfg config.TreeSequenceConfig) tim
 }
 
 func (ct *ChristmasTree) setAllLights(lightType LightType, state LightState) {
-	trackConfig := ct.config.GetTrackConfig()
+	trackConfig := ct.config.Track()
 	for lane := 1; lane <= trackConfig.LaneCount; lane++ {
 		ct.status.LightStates[lane][lightType] = state
 	}

@@ -93,7 +93,7 @@ func (ts *TimingSystem) Initialize(ctx context.Context, cfg config.Config) error
 	ts.config = cfg
 
 	// Initialize beams from config
-	trackConfig := cfg.GetTrackConfig()
+	trackConfig := cfg.Track()
 	for beamID, beamConfig := range trackConfig.BeamLayout {
 		ts.beams[beamID] = &TimingBeam{
 			ID:       beamID,

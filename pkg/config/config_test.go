@@ -12,7 +12,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	}
 
 	// Test that track config is properly initialized
-	trackConfig := cfg.GetTrackConfig()
+	trackConfig := cfg.Track()
 	if trackConfig.BeamLayout == nil {
 		t.Fatal("BeamLayout should be initialized")
 	}
@@ -29,7 +29,7 @@ func TestNewDefaultConfig(t *testing.T) {
 
 func TestTreeConfig(t *testing.T) {
 	cfg := NewDefaultConfig()
-	treeConfig := cfg.GetTreeConfig()
+	treeConfig := cfg.Tree()
 
 	// Verify tree config has reasonable defaults
 	if treeConfig.PreStageTimeout <= 0 {
@@ -48,7 +48,7 @@ func TestTreeConfig(t *testing.T) {
 
 func TestBeamConfigValidation(t *testing.T) {
 	cfg := NewDefaultConfig()
-	trackConfig := cfg.GetTrackConfig()
+	trackConfig := cfg.Track()
 
 	// Verify beam positions are logical
 	beams := trackConfig.BeamLayout

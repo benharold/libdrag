@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/benharold/libdrag/pkg/api"
@@ -13,33 +14,39 @@ func NewLibDrag() *api.LibDragAPI {
 }
 
 func main() {
-	fmt.Println("🏁 LIBDRAG - DRAG RACING LIBRARY")
-	fmt.Println("=================================")
+	// Setup structured logging
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
+	slog.Info("🏁 LIBDRAG - DRAG RACING LIBRARY")
+	slog.Info("=================================")
 
 	// Create the libdrag API
 	libdragAPI := api.NewLibDragAPI()
 
 	// Initialize system
-	fmt.Println("📊 Initializing libdrag system...")
+	slog.Info("📊 Initializing libdrag system...")
 	if err := libdragAPI.Initialize(); err != nil {
-		fmt.Printf("❌ Failed to initialize libdrag: %v\n", err)
-		return
+		slog.Error("❌ Failed to initialize libdrag", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Println("✅ libdrag system initialized successfully")
+	slog.Info("✅ libdrag system initialized successfully")
 
 	// Start race
-	fmt.Println("\n🚗 Starting race with libdrag...")
+	slog.Info("🚗 Starting race with libdrag...")
 	raceID, err := libdragAPI.StartRaceWithID()
 	if err != nil {
-		fmt.Printf("❌ Failed to start race: %v\n", err)
-		return
+		slog.Error("❌ Failed to start race", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Printf("🏁 Race started with ID: %s\n", raceID)
+	slog.Info("🏁 Race started", "race_id", raceID)
 
 	// Monitor race progress
-	fmt.Println("🔄 Monitoring race progress...")
+	slog.Info("🔄 Monitoring race progress...")
 
 	// Wait for race to complete
 	for i := 0; i < 100; i++ { // Max 10 seconds
@@ -50,27 +57,27 @@ func main() {
 		// Show status updates
 		if i%10 == 0 {
 			status := libdragAPI.GetRaceStatusJSONByID(raceID)
-			fmt.Printf("📊 Race Status: %s\n", status)
+			slog.Info("📊 Race Status", "status", status)
 		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Display final results
-	fmt.Println("\n🏆 LIBDRAG FINAL RESULTS")
-	fmt.Println("========================")
+	slog.Info("🏆 LIBDRAG FINAL RESULTS")
+	slog.Info("========================")
 
 	resultsJSON := libdragAPI.GetResultsJSONByID(raceID)
-	fmt.Printf("Results JSON:\n%s\n", resultsJSON)
+	slog.Info("Results JSON", "results", resultsJSON)
 
 	treeStatusJSON := libdragAPI.GetTreeStatusJSONByID(raceID)
-	fmt.Printf("\nTree Status JSON:\n%s\n", treeStatusJSON)
+	slog.Info("Tree Status JSON", "tree_status", treeStatusJSON)
 
 	// Clean shutdown
-	fmt.Println("\n🔧 Shutting down libdrag system...")
+	slog.Info("🔧 Shutting down libdrag system...")
 	if err := libdragAPI.Stop(); err != nil {
-		fmt.Printf("❌ Failed to shutdown cleanly: %v\n", err)
+		slog.Error("❌ Failed to shutdown cleanly", "error", err)
 	} else {
-		fmt.Println("✅ libdrag system shutdown complete")
+		slog.Info("✅ libdrag system shutdown complete")
 	}
 }
