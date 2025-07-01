@@ -12,6 +12,7 @@ import (
 	"github.com/benharold/libdrag/internal/vehicle"
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/orchestrator"
 	"github.com/benharold/libdrag/pkg/timing"
 	"github.com/benharold/libdrag/pkg/tree"
@@ -26,6 +27,7 @@ type LibDragAPI struct {
 	maxConcurrentRaces int
 	globalConfig       config.Config
 	initialized        bool
+	eventBus           *events.EventBus
 }
 
 func NewLibDragAPI() *LibDragAPI {
@@ -42,6 +44,10 @@ func (api *LibDragAPI) Initialize() error {
 
 	// Create global configuration
 	api.globalConfig = config.NewDefaultConfig()
+	
+	// Create event bus in async mode for better performance
+	api.eventBus = events.NewEventBus(true)
+	
 	api.initialized = true
 
 	return nil
@@ -72,6 +78,8 @@ func (api *LibDragAPI) StartRaceWithID() (string, error) {
 
 	// Create new orchestrator for this race
 	raceOrchestrator := orchestrator.NewRaceOrchestrator()
+	raceOrchestrator.SetEventBus(api.eventBus)
+	raceOrchestrator.SetRaceID(raceID)
 
 	// Create components for this race with race ID context
 	timingSystem := timing.NewTimingSystemWithRaceID(raceID)
@@ -291,6 +299,11 @@ func (api *LibDragAPI) Stop() error {
 		delete(api.orchestrators, raceID)
 	}
 
+	// Stop the event bus
+	if api.eventBus != nil {
+		api.eventBus.Stop()
+	}
+
 	api.initialized = false
 	return nil
 }
@@ -376,6 +389,40 @@ func (api *LibDragAPI) SetTestMode(enabled bool) {
 		if timingSystem := orchestrator.GetTimingSystem(); timingSystem != nil {
 			timingSystem.SetTestMode(enabled)
 		}
+	}
+}
+
+// Subscribe adds an event handler for a specific event type
+func (api *LibDragAPI) Subscribe(eventType events.EventType, handler events.EventHandler) func() {
+	api.mu.RLock()
+	defer api.mu.RUnlock()
+
+	if api.eventBus == nil {
+		return func() {} // Return no-op unsubscribe if not initialized
+	}
+
+	return api.eventBus.Subscribe(eventType, handler)
+}
+
+// SubscribeAll adds an event handler that receives all events
+func (api *LibDragAPI) SubscribeAll(handler events.EventHandler) func() {
+	api.mu.RLock()
+	defer api.mu.RUnlock()
+
+	if api.eventBus == nil {
+		return func() {} // Return no-op unsubscribe if not initialized
+	}
+
+	return api.eventBus.SubscribeAll(handler)
+}
+
+// PublishEvent publishes an event to the event bus (for testing or external components)
+func (api *LibDragAPI) PublishEvent(event events.Event) {
+	api.mu.RLock()
+	defer api.mu.RUnlock()
+
+	if api.eventBus != nil {
+		api.eventBus.Publish(event)
 	}
 }
 

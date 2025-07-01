@@ -9,6 +9,7 @@ import (
 	"github.com/benharold/libdrag/internal/vehicle"
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/timing"
 	"github.com/benharold/libdrag/pkg/tree"
 )
@@ -45,6 +46,8 @@ type RaceOrchestrator struct {
 	christmasTree *tree.ChristmasTree
 	leftVehicle   *vehicle.SimpleVehicle
 	rightVehicle  *vehicle.SimpleVehicle
+	eventBus      *events.EventBus
+	raceID        string
 }
 
 func NewRaceOrchestrator() *RaceOrchestrator {
@@ -75,6 +78,16 @@ func (ro *RaceOrchestrator) Initialize(ctx context.Context, components []compone
 			ro.timingSystem = c
 		case *tree.ChristmasTree:
 			ro.christmasTree = c
+		}
+		
+		// If component supports events, set event bus and race ID
+		if eventAware, ok := comp.(component.EventAwareComponent); ok {
+			if ro.eventBus != nil {
+				eventAware.SetEventBus(ro.eventBus)
+			}
+			if ro.raceID != "" {
+				eventAware.SetRaceID(ro.raceID)
+			}
 		}
 
 		ro.status.Components[comp.GetID()] = comp.GetStatus()
@@ -110,6 +123,15 @@ func (ro *RaceOrchestrator) StartRace(leftVehicle, rightVehicle *vehicle.SimpleV
 	ro.status.ActiveLanes = []int{1, 2}
 	ro.status.StartTime = time.Now()
 	ro.status.State = RaceStateStaging
+	
+	// Publish race start event
+	if ro.eventBus != nil {
+		ro.eventBus.Publish(
+			events.NewEvent(events.EventRaceStart).
+				WithRaceID(ro.raceID).
+				Build(),
+		)
+	}
 
 	// Reset and prepare timing system
 	ro.timingSystem.StartRace()
@@ -200,6 +222,15 @@ func (ro *RaceOrchestrator) simulateVehicleRun(greenTime time.Time) {
 	ro.mu.Lock()
 	ro.status.State = RaceStateComplete
 	ro.mu.Unlock()
+	
+	// Publish race complete event
+	if ro.eventBus != nil {
+		ro.eventBus.Publish(
+			events.NewEvent(events.EventRaceComplete).
+				WithRaceID(ro.raceID).
+				Build(),
+		)
+	}
 
 	fmt.Println("🏁 libdrag Race Orchestrator: Race complete!")
 }
@@ -241,4 +272,18 @@ func (ro *RaceOrchestrator) IsRaceComplete() bool {
 	ro.mu.RLock()
 	defer ro.mu.RUnlock()
 	return ro.status.State == RaceStateComplete
+}
+
+// SetEventBus sets the event bus for the orchestrator
+func (ro *RaceOrchestrator) SetEventBus(eventBus *events.EventBus) {
+	ro.mu.Lock()
+	defer ro.mu.Unlock()
+	ro.eventBus = eventBus
+}
+
+// SetRaceID sets the race ID for the orchestrator
+func (ro *RaceOrchestrator) SetRaceID(raceID string) {
+	ro.mu.Lock()
+	defer ro.mu.Unlock()
+	ro.raceID = raceID
 }

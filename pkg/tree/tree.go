@@ -8,6 +8,7 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 )
 
 // LightType defines different lights on the christmas tree
@@ -52,6 +53,8 @@ type ChristmasTree struct {
 	running        bool
 	lanesPreStaged map[int]bool
 	lanesStaged    map[int]bool
+	eventBus       *events.EventBus
+	raceID         string
 }
 
 func NewChristmasTree() *ChristmasTree {
@@ -123,7 +126,20 @@ func (ct *ChristmasTree) GetTreeStatus() TreeStatus {
 	return ct.status
 }
 
-// Direct methods to replace event handling
+// SetEventBus sets the event bus for publishing events
+func (ct *ChristmasTree) SetEventBus(eventBus *events.EventBus) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	ct.eventBus = eventBus
+}
+
+// SetRaceID sets the race ID for event context
+func (ct *ChristmasTree) SetRaceID(raceID string) {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+	ct.raceID = raceID
+}
+
 func (ct *ChristmasTree) SetPreStage(lane int) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
@@ -132,6 +148,16 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 	ct.lanesPreStaged[lane] = true
 
 	fmt.Printf("🟡 libdrag: Pre-stage light ON for lane %d\n", lane)
+	
+	// Publish pre-stage event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreePreStage).
+				WithRaceID(ct.raceID).
+				WithLane(lane).
+				Build(),
+		)
+	}
 
 	// Check if both lanes are pre-staged to arm the race
 	trackConfig := ct.config.Track()
@@ -146,6 +172,15 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 	if allPreStaged && !ct.status.IsArmed {
 		ct.status.IsArmed = true
 		fmt.Println("🔥 libdrag Christmas Tree: ARMED - Both lanes pre-staged")
+		
+		// Publish armed event
+		if ct.eventBus != nil {
+			ct.eventBus.Publish(
+				events.NewEvent(events.EventTreeArmed).
+					WithRaceID(ct.raceID).
+					Build(),
+			)
+		}
 	}
 }
 
@@ -157,6 +192,16 @@ func (ct *ChristmasTree) SetStage(lane int) {
 	ct.lanesStaged[lane] = true
 
 	fmt.Printf("🟡 libdrag: Stage light ON for lane %d\n", lane)
+	
+	// Publish stage event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeStage).
+				WithRaceID(ct.raceID).
+				WithLane(lane).
+				Build(),
+		)
+	}
 }
 
 func (ct *ChristmasTree) IsArmed() bool {
@@ -199,6 +244,16 @@ func (ct *ChristmasTree) StartSequence(sequenceType config.TreeSequenceType) err
 	ct.status.LastSequence = time.Now()
 
 	fmt.Printf("🎄 libdrag: Starting %s sequence\n", sequenceType)
+	
+	// Publish sequence start event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeSequenceStart).
+				WithRaceID(ct.raceID).
+				WithData("sequence_type", string(sequenceType)).
+				Build(),
+		)
+	}
 
 	// Start the sequence in a goroutine
 	go ct.runSequence(sequenceType)
@@ -211,6 +266,16 @@ func (ct *ChristmasTree) runSequence(sequenceType config.TreeSequenceType) time.
 		ct.mu.Lock()
 		ct.status.IsRunning = false
 		ct.mu.Unlock()
+		
+		// Publish sequence end event
+		if ct.eventBus != nil {
+			ct.eventBus.Publish(
+				events.NewEvent(events.EventTreeSequenceEnd).
+					WithRaceID(ct.raceID).
+					WithData("sequence_type", string(sequenceType)).
+					Build(),
+			)
+		}
 	}()
 
 	treeConfig := ct.config.Tree()
@@ -232,6 +297,17 @@ func (ct *ChristmasTree) runProSequence(cfg config.TreeSequenceConfig) time.Time
 	ct.setAllLights(LightAmber1, LightOn)
 	ct.setAllLights(LightAmber2, LightOn)
 	ct.setAllLights(LightAmber3, LightOn)
+	
+	// Publish amber event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeAmberOn).
+				WithRaceID(ct.raceID).
+				WithData("count", 3).
+				WithData("sequence", "pro").
+				Build(),
+		)
+	}
 
 	// Wait for green delay
 	time.Sleep(cfg.GreenDelay)
@@ -244,6 +320,16 @@ func (ct *ChristmasTree) runProSequence(cfg config.TreeSequenceConfig) time.Time
 
 	greenTime := time.Now()
 	fmt.Println("🟢 libdrag: GREEN LIGHT! GO GO GO!")
+	
+	// Publish green light event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeGreenOn).
+				WithRaceID(ct.raceID).
+				WithData("green_time", greenTime).
+				Build(),
+		)
+	}
 
 	return greenTime
 }
@@ -255,6 +341,17 @@ func (ct *ChristmasTree) runSportsmanSequence(cfg config.TreeSequenceConfig) tim
 	for i, light := range amberLights {
 		fmt.Printf("🟡 libdrag: Amber %d ON\n", i+1)
 		ct.setAllLights(light, LightOn)
+		
+		// Publish amber event for each light
+		if ct.eventBus != nil {
+			ct.eventBus.Publish(
+				events.NewEvent(events.EventTreeAmberOn).
+					WithRaceID(ct.raceID).
+					WithData("amber_number", i+1).
+					WithData("sequence", "sportsman").
+					Build(),
+			)
+		}
 
 		if i < len(amberLights)-1 {
 			time.Sleep(cfg.AmberDelay)
@@ -272,6 +369,16 @@ func (ct *ChristmasTree) runSportsmanSequence(cfg config.TreeSequenceConfig) tim
 
 	greenTime := time.Now()
 	fmt.Println("🟢 libdrag: GREEN LIGHT! GO GO GO!")
+	
+	// Publish green light event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeGreenOn).
+				WithRaceID(ct.raceID).
+				WithData("green_time", greenTime).
+				Build(),
+		)
+	}
 
 	return greenTime
 }

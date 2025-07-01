@@ -8,6 +8,7 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 )
 
 // TimingResults holds race timing data
@@ -57,6 +58,7 @@ type TimingSystem struct {
 	raceID         string
 	testMode       bool
 	greenLightTime time.Time
+	eventBus       *events.EventBus
 }
 
 func NewTimingSystem() *TimingSystem {
@@ -131,6 +133,20 @@ func (ts *TimingSystem) GetStatus() component.ComponentStatus {
 	return ts.status
 }
 
+// SetEventBus sets the event bus for publishing events
+func (ts *TimingSystem) SetEventBus(eventBus *events.EventBus) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.eventBus = eventBus
+}
+
+// SetRaceID sets the race ID for event context
+func (ts *TimingSystem) SetRaceID(raceID string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	ts.raceID = raceID
+}
+
 // Direct methods to replace event handling
 func (ts *TimingSystem) StartRace() {
 	ts.mu.Lock()
@@ -200,6 +216,18 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 	// Update timing results if lane exists
 	if result, exists := ts.results[lane]; exists {
 		result.BeamTriggers[beamID] = triggerTime
+		
+		// Publish beam trigger event
+		if ts.eventBus != nil {
+			ts.eventBus.Publish(
+				events.NewEvent(events.EventTimingBeamTrigger).
+					WithRaceID(ts.raceID).
+					WithLane(lane).
+					WithData("beam_id", beamID).
+					WithData("trigger_time", triggerTime).
+					Build(),
+			)
+		}
 
 		// Calculate timing splits based on beam
 		switch beamID {
@@ -214,6 +242,35 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				if reactionTime < 0 {
 					result.IsFoul = true
 					result.FoulReason = "red_light"
+					
+					// Publish red light event
+					if ts.eventBus != nil {
+						ts.eventBus.Publish(
+							events.NewEvent(events.EventTreeRedLight).
+								WithRaceID(ts.raceID).
+								WithLane(lane).
+								WithData("reaction_time", reactionTime).
+								Build(),
+						)
+						ts.eventBus.Publish(
+							events.NewEvent(events.EventRaceFoul).
+								WithRaceID(ts.raceID).
+								WithLane(lane).
+								WithData("reason", "red_light").
+								Build(),
+						)
+					}
+				}
+				
+				// Publish reaction time event
+				if ts.eventBus != nil {
+					ts.eventBus.Publish(
+						events.NewEvent(events.EventTimingReaction).
+							WithRaceID(ts.raceID).
+							WithLane(lane).
+							WithData("reaction_time", reactionTime).
+							Build(),
+					)
 				}
 			} else {
 				// No green light yet - set start time for later calculation
@@ -225,6 +282,17 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 			if !result.StartTime.IsZero() {
 				sixtyFootTime := triggerTime.Sub(result.StartTime).Seconds()
 				result.SixtyFootTime = &sixtyFootTime
+				
+				// Publish 60-foot event
+				if ts.eventBus != nil {
+					ts.eventBus.Publish(
+						events.NewEvent(events.EventTiming60Foot).
+							WithRaceID(ts.raceID).
+							WithLane(lane).
+							WithData("time", sixtyFootTime).
+							Build(),
+					)
+				}
 			}
 
 		case "330_foot":
@@ -233,6 +301,17 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				time330 := triggerTime.Sub(result.StartTime).Seconds()
 				// Note: Could add ThreeThirtyFootTime field if needed
 				_ = time330
+				
+				// Publish 330-foot event
+				if ts.eventBus != nil {
+					ts.eventBus.Publish(
+						events.NewEvent(events.EventTiming330Foot).
+							WithRaceID(ts.raceID).
+							WithLane(lane).
+							WithData("time", time330).
+							Build(),
+					)
+				}
 			}
 
 		case "660_foot":
@@ -240,6 +319,17 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 			if !result.StartTime.IsZero() {
 				eighthMileTime := triggerTime.Sub(result.StartTime).Seconds()
 				result.EighthMileTime = &eighthMileTime
+				
+				// Publish eighth-mile event
+				if ts.eventBus != nil {
+					ts.eventBus.Publish(
+						events.NewEvent(events.EventTimingEighthMile).
+							WithRaceID(ts.raceID).
+							WithLane(lane).
+							WithData("time", eighthMileTime).
+							Build(),
+					)
+				}
 			}
 
 		case "1320_foot":
@@ -252,6 +342,18 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				// Calculate trap speed (simplified calculation)
 				trapSpeed := 1320.0 / quarterMileTime * 0.681818 // Convert ft/s to mph
 				result.TrapSpeed = &trapSpeed
+				
+				// Publish quarter-mile event
+				if ts.eventBus != nil {
+					ts.eventBus.Publish(
+						events.NewEvent(events.EventTimingQuarterMile).
+							WithRaceID(ts.raceID).
+							WithLane(lane).
+							WithData("time", quarterMileTime).
+							WithData("trap_speed", trapSpeed).
+							Build(),
+					)
+				}
 			}
 		}
 

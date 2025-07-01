@@ -54,7 +54,6 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 
 func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 	system := NewAutoStartSystem()
-	system.SetTestMode(true)
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
@@ -62,20 +61,31 @@ func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
+	// Set test mode AFTER initialization to override the loaded config
+	system.SetTestMode(true)
+
 	err = system.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
 
-	// Trigger auto-start
+	// Trigger auto-start with three-light rule
 	system.UpdateVehicleStaging(1, true, false, 0)
 	system.UpdateVehicleStaging(2, true, false, 0)
-	system.UpdateVehicleStaging(1, true, true, 0)
+	system.UpdateVehicleStaging(1, true, true, 0) // This triggers auto-start
 
-	// Wait for timeout (in test mode, this is 100ms)
-	time.Sleep(150 * time.Millisecond)
-
+	// Verify we're in armed state
+	time.Sleep(10 * time.Millisecond)
 	status := system.GetAutoStartStatus()
+	if status.State != StateArmed {
+		t.Fatalf("Expected StateArmed after three-light rule, got %v", status.State)
+	}
+
+	// Don't stage the second vehicle - let it timeout
+	// Wait for timeout (in test mode, this should be 50ms)
+	time.Sleep(80 * time.Millisecond) // Wait longer than the 50ms timeout
+
+	status = system.GetAutoStartStatus()
 	if status.State != StateFault {
 		t.Errorf("Expected StateFault after timeout, got %v", status.State)
 	}
@@ -113,13 +123,15 @@ func TestAutoStartSystem_GuardBeamViolation(t *testing.T) {
 
 func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 	system := NewAutoStartSystem()
-	system.SetTestMode(true)
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
+
+	// Set test mode AFTER initialization to override the loaded config
+	system.SetTestMode(true)
 
 	err = system.Start(context.Background())
 	if err != nil {
@@ -139,7 +151,7 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 
 	// Step 2: One vehicle stages (triggers auto-start)
 	system.UpdateVehicleStaging(1, true, true, 0)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) // Allow processing
 	status := system.GetAutoStartStatus()
 	if status.State != StateArmed {
 		t.Errorf("Expected StateArmed, got %v", status.State)
@@ -147,14 +159,15 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 
 	// Step 3: Second vehicle stages (both staged)
 	system.UpdateVehicleStaging(2, true, true, 0)
-	time.Sleep(5 * time.Millisecond)
+	time.Sleep(15 * time.Millisecond) // Allow staging detection
 	status = system.GetAutoStartStatus()
 	if status.State != StateStaging {
 		t.Errorf("Expected StateStaging after both staged, got %v", status.State)
 	}
 
 	// Step 4: Wait for minimum staging duration + random delay
-	time.Sleep(50 * time.Millisecond) // Should be enough in test mode
+	// In test mode: MinStagingDuration=5ms, RandomDelay=1-3ms, so max ~8ms
+	time.Sleep(20 * time.Millisecond) // Wait longer than max possible delay
 
 	// Verify tree was triggered
 	if !treeTriggerCalled {

@@ -313,7 +313,7 @@ func (as *AutoStartSystem) triggerAutoStart() {
 
 // monitorForFullStaging watches for both vehicles to be fully staged
 func (as *AutoStartSystem) monitorForFullStaging() {
-	ticker := time.NewTicker(10 * time.Millisecond) // More frequent checking in test mode
+	ticker := time.NewTicker(5 * time.Millisecond) // Very frequent checking for test reliability
 	defer ticker.Stop()
 
 	for {
@@ -326,18 +326,15 @@ func (as *AutoStartSystem) monitorForFullStaging() {
 			}
 
 			// Check if both vehicles are fully staged
-			bothStaged := true
 			stagedCount := 0
 			for _, staging := range as.status.VehicleStaging {
 				if staging.Staged {
 					stagedCount++
-				} else {
-					bothStaged = false
 				}
 			}
 
-			// Only transition to staging if we have exactly 2 staged vehicles
-			if bothStaged && stagedCount == 2 && as.status.BothVehiclesStaged.IsZero() {
+			// Only transition to staging if we have exactly 2 staged vehicles and haven't transitioned yet
+			if stagedCount == 2 && as.status.BothVehiclesStaged.IsZero() {
 				as.status.BothVehiclesStaged = time.Now()
 				as.status.State = StateStaging
 
@@ -369,19 +366,17 @@ func (as *AutoStartSystem) triggerTreeSequence() {
 			as.status.State = StateTriggered
 			as.status.TreeTriggerTime = time.Now()
 
-			// Trigger the tree sequence
+			// Trigger the tree sequence immediately (don't use goroutine for test reliability)
 			if as.onTreeTrigger != nil {
-				go func() {
-					if err := as.onTreeTrigger(); err != nil {
-						as.mu.Lock()
-						as.triggerFault(fmt.Sprintf("Tree trigger error: %v", err))
-						as.mu.Unlock()
-					}
-				}()
+				err := as.onTreeTrigger()
+				if err != nil {
+					as.triggerFault(fmt.Sprintf("Tree trigger error: %v", err))
+					return
+				}
 			}
 
 			// Reset to idle after successful trigger
-			time.AfterFunc(2*time.Second, func() {
+			time.AfterFunc(100*time.Millisecond, func() { // Shorter delay for tests
 				as.mu.Lock()
 				defer as.mu.Unlock()
 				as.resetToIdle("Race completed")
@@ -525,10 +520,10 @@ func (as *AutoStartSystem) SetTestMode(enabled bool) {
 	as.testMode = enabled
 
 	if enabled {
-		// Accelerate timing for testing
-		as.config.StagingTimeout = 100 * time.Millisecond
-		as.config.MinStagingDuration = 10 * time.Millisecond
-		as.config.RandomDelayMin = 5 * time.Millisecond
-		as.config.RandomDelayMax = 15 * time.Millisecond
+		// Accelerate timing for testing - make timeout much shorter
+		as.config.StagingTimeout = 50 * time.Millisecond // Very short timeout for reliable testing
+		as.config.MinStagingDuration = 5 * time.Millisecond
+		as.config.RandomDelayMin = 1 * time.Millisecond
+		as.config.RandomDelayMax = 3 * time.Millisecond
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 )
 
 // ComponentStatus represents the current state of a component
@@ -21,4 +22,11 @@ type Component interface {
 	Start(ctx context.Context) error
 	Stop() error
 	GetStatus() ComponentStatus
+}
+
+// EventAwareComponent extends Component with event bus support
+type EventAwareComponent interface {
+	Component
+	SetEventBus(eventBus *events.EventBus)
+	SetRaceID(raceID string)
 }
