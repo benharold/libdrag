@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staging Bulb States Matrix</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .matrix-container {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        table {
+            border-collapse: collapse;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th, td {
+            border: 2px solid #333;
+            padding: 12px;
+            text-align: center;
+            min-width: 120px;
+        }
+        th {
+            background-color: #4a90e2;
+            color: white;
+            font-weight: bold;
+        }
+        .row-header {
+            background-color: #e8f2ff;
+            font-weight: bold;
+            color: #333;
+        }
+        .bulb-on {
+            background-color: #ffeb3b;
+            color: #333;
+            font-weight: bold;
+        }
+        .bulb-off {
+            background-color: #666;
+            color: white;
+        }
+        .legend {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4a90e2;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .legend-item {
+            display: inline-block;
+            margin: 5px 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .description {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #e8f5e8;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        .notation {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Drag Racing Staging Bulb States Matrix</h1>
+
+    <div class="description">
+        <h3>Matrix Overview</h3>
+        <p>This 4x4 matrix shows all 16 possible combinations of pre-stage and stage bulb states for both lanes in a drag racing setup. Each cell represents a unique staging scenario that can occur during the staging process.</p>
+        <p><strong>Lane 1 (Left Lane):</strong> Rows represent different combinations of Lane 1's pre-stage and stage bulbs</p>
+        <p><strong>Lane 2 (Right Lane):</strong> Columns represent different combinations of Lane 2's pre-stage and stage bulbs</p>
+    </div>
+
+    <div class="matrix-container">
+        <table>
+            <thead>
+            <tr>
+                <th>Lane 1 \ Lane 2</th>
+                <th>Pre: OFF<br>Stage: OFF</th>
+                <th>Pre: ON<br>Stage: OFF</th>
+                <th>Pre: ON<br>Stage: ON</th>
+                <th>Pre: OFF<br>Stage: ON<br>(Deep Staged)</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td class="row-header">Pre: OFF<br>Stage: OFF</td>
+                <td class="bulb-off">0,0 - 0,0</td>
+                <td class="bulb-off">0,0 - 1,0</td>
+                <td class="bulb-off">0,0 - 1,1</td>
+                <td class="bulb-off">0,0 - 0,1</td>
+            </tr>
+            <tr>
+                <td class="row-header">Pre: ON<br>Stage: OFF</td>
+                <td class="bulb-off">1,0 - 0,0</td>
+                <td class="bulb-on">1,0 - 1,0</td>
+                <td class="bulb-on">1,0 - 1,1</td>
+                <td class="bulb-off">1,0 - 0,1</td>
+            </tr>
+            <tr>
+                <td class="row-header">Pre: ON<br>Stage: ON</td>
+                <td class="bulb-off">1,1 - 0,0</td>
+                <td class="bulb-on">1,1 - 1,0</td>
+                <td class="bulb-on">1,1 - 1,1</td>
+                <td class="bulb-on">1,1 - 0,1</td>
+            </tr>
+            <tr>
+                <td class="row-header">Pre: OFF<br>Stage: ON<br>(Deep Staged)</td>
+                <td class="bulb-off">0,1 - 0,0</td>
+                <td class="bulb-off">0,1 - 1,0</td>
+                <td class="bulb-on">0,1 - 1,1</td>
+                <td class="bulb-off">0,1 - 0,1</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="legend">
+        <h3>Legend</h3>
+        <div class="legend-item bulb-on">AutoStart Conditions Met</div>
+        <div class="legend-item bulb-off">AutoStart Conditions NOT Met</div>
+        <p class="notation">
+            <strong>Notation:</strong> Each cell shows "L1_Pre,L1_Stage - L2_Pre,L2_Stage" where 1 = ON and 0 = OFF
+        </p>
+    </div>
+
+    <div class="description">
+        <h3>Key Staging Scenarios</h3>
+        <ul>
+            <li><strong>Both Cars Not Staged (0,0 - 0,0):</strong> No cars in staging area</li>
+            <li><strong>Both Cars Pre-Staged (1,0 - 1,0):</strong> Both cars approximately 7 inches from starting line</li>
+            <li><strong>Both Cars Fully Staged (1,1 - 1,1):</strong> Both cars ready to race, tree will activate</li>
+            <li><strong>One Car Staged, One Pre-Staged (1,1 - 1,0):</strong> AutoStart timeout begins for Lane 2</li>
+            <li><strong>Deep Staged Scenarios (0,1 - X,X):</strong> Pre-stage bulb turned off by rolling forward past normal staging position</li>
+        </ul>
+    </div>
+
+    <div class="description">
+        <h3>AutoStart System Behavior</h3>
+        <p><strong>Yellow cells</strong> indicate conditions where the AutoStart system's timeout mechanism would be active or the tree would start automatically:</p>
+        <ul>
+            <li>When three total bulbs are lit (two pre-stage + one stage from either lane)</li>
+            <li>When both cars are fully staged (four total bulbs lit)</li>
+            <li>When one car is staged and the other is pre-staged (three total bulbs lit)</li>
+        </ul>
+    </div>
+</div>
+</body>
+</html>
