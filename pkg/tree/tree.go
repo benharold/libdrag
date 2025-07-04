@@ -3,6 +3,7 @@ package tree
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"sync"
 	"time"
 
@@ -58,15 +59,16 @@ type ChristmasTree struct {
 }
 
 func NewChristmasTree() *ChristmasTree {
+	id := uuid.New().String()
 	return &ChristmasTree{
-		id: "christmas_tree",
+		id: id,
 		status: Status{
 			Armed:       false,
 			Activated:   false,
 			LightStates: make(map[int]map[LightType]LightState),
 		},
 		compStatus: component.ComponentStatus{
-			ID:       "christmas_tree",
+			ID:       id,
 			Status:   "stopped",
 			Metadata: make(map[string]interface{}),
 		},
