@@ -143,7 +143,7 @@ func TestEventBusStop(t *testing.T) {
 		t.Error("Event not received before stop")
 	}
 
-	// Stop the event bus
+	// EmergencyStop the event bus
 	eb.Stop()
 
 	// Try to publish after stop - should not panic

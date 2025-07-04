@@ -44,10 +44,10 @@ func (api *LibDragAPI) Initialize() error {
 
 	// Create global configuration
 	api.globalConfig = config.NewDefaultConfig()
-	
+
 	// Create event bus in async mode for better performance
 	api.eventBus = events.NewEventBus(true)
-	
+
 	api.initialized = true
 
 	return nil
@@ -99,7 +99,7 @@ func (api *LibDragAPI) StartRaceWithID() (string, error) {
 	// Store the orchestrator
 	api.orchestrators[raceID] = raceOrchestrator
 
-	// Start the race
+	// Arm the race
 	leftVehicle := vehicle.NewSimpleVehicle(1)
 	rightVehicle := vehicle.NewSimpleVehicle(2)
 
@@ -109,7 +109,7 @@ func (api *LibDragAPI) StartRaceWithID() (string, error) {
 		return "", err
 	}
 
-	// Start goroutine to clean up completed races
+	// Arm goroutine to clean up completed races
 	go api.monitorRaceCompletion(raceID)
 
 	return raceID, nil
@@ -264,7 +264,7 @@ func (api *LibDragAPI) CompleteRace(raceID string) error {
 		return fmt.Errorf("race %s not found", raceID)
 	}
 
-	// Stop the orchestrator if it has a Stop method
+	// EmergencyStop the orchestrator if it has a EmergencyStop method
 	// Note: This assumes the orchestrator has cleanup methods
 	// You may need to implement these in the orchestrator package
 
@@ -294,12 +294,12 @@ func (api *LibDragAPI) Stop() error {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
-	// Stop all active races
+	// EmergencyStop all active races
 	for raceID := range api.orchestrators {
 		delete(api.orchestrators, raceID)
 	}
 
-	// Stop the event bus
+	// EmergencyStop the event bus
 	if api.eventBus != nil {
 		api.eventBus.Stop()
 	}

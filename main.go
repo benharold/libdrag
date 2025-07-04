@@ -39,37 +39,37 @@ func main() {
 
 	// Subscribe to events for demonstration
 	slog.Info("📡 Setting up event listeners...")
-	
+
 	// Subscribe to tree events
 	libdragAPI.Subscribe(events.EventTreePreStage, func(e events.Event) {
 		slog.Info("EVENT: Pre-stage", "lane", e.Lane, "race_id", e.RaceID)
 	})
-	
+
 	libdragAPI.Subscribe(events.EventTreeStage, func(e events.Event) {
 		slog.Info("EVENT: Stage", "lane", e.Lane, "race_id", e.RaceID)
 	})
-	
+
 	libdragAPI.Subscribe(events.EventTreeArmed, func(e events.Event) {
 		slog.Info("EVENT: Tree Armed!", "race_id", e.RaceID)
 	})
-	
+
 	libdragAPI.Subscribe(events.EventTreeGreenOn, func(e events.Event) {
 		slog.Info("EVENT: GREEN LIGHT!", "race_id", e.RaceID)
 	})
-	
+
 	// Subscribe to timing events
 	libdragAPI.Subscribe(events.EventTimingReaction, func(e events.Event) {
 		if rt, ok := e.Data["reaction_time"].(float64); ok {
 			slog.Info("EVENT: Reaction Time", "lane", e.Lane, "time", fmt.Sprintf("%.3fs", rt))
 		}
 	})
-	
+
 	libdragAPI.Subscribe(events.EventTiming60Foot, func(e events.Event) {
 		if time, ok := e.Data["time"].(float64); ok {
 			slog.Info("EVENT: 60-foot", "lane", e.Lane, "time", fmt.Sprintf("%.3fs", time))
 		}
 	})
-	
+
 	libdragAPI.Subscribe(events.EventTimingQuarterMile, func(e events.Event) {
 		if time, ok := e.Data["time"].(float64); ok {
 			if speed, ok := e.Data["trap_speed"].(float64); ok {
@@ -77,16 +77,16 @@ func main() {
 			}
 		}
 	})
-	
+
 	// Subscribe to race events
 	libdragAPI.Subscribe(events.EventRaceStart, func(e events.Event) {
 		slog.Info("EVENT: Race Started", "race_id", e.RaceID)
 	})
-	
+
 	libdragAPI.Subscribe(events.EventRaceComplete, func(e events.Event) {
 		slog.Info("EVENT: Race Complete", "race_id", e.RaceID)
 	})
-	
+
 	// Subscribe to foul events
 	libdragAPI.Subscribe(events.EventTreeRedLight, func(e events.Event) {
 		if rt, ok := e.Data["reaction_time"].(float64); ok {
@@ -94,7 +94,7 @@ func main() {
 		}
 	})
 
-	// Start race
+	// Arm race
 	slog.Info("🚗 Starting race with libdrag...")
 	raceID, err := libdragAPI.StartRaceWithID()
 	if err != nil {

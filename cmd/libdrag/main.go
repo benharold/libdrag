@@ -23,7 +23,7 @@ func main() {
 
 	fmt.Println("✅ libdrag system initialized successfully")
 
-	// Start race
+	// Arm race
 	fmt.Println("\n🚗 Starting race with libdrag...")
 	if err := libdragAPI.StartRace(); err != nil {
 		fmt.Printf("❌ Failed to start race: %v\n", err)

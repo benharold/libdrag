@@ -106,12 +106,12 @@ func (asi *AutoStartIntegration) Start(ctx context.Context) error {
 		return fmt.Errorf("auto-start integration already running")
 	}
 
-	// Start auto-start system
+	// Arm auto-start system
 	if err := asi.autoStart.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start auto-start system: %w", err)
 	}
 
-	// Start monitoring timing beam triggers
+	// Arm monitoring timing beam triggers
 	go asi.monitorTimingBeams(ctx)
 
 	asi.running = true

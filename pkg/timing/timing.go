@@ -109,7 +109,7 @@ func (ts *TimingSystem) Initialize(ctx context.Context, cfg config.Config) error
 	return nil
 }
 
-func (ts *TimingSystem) Start(ctx context.Context) error {
+func (ts *TimingSystem) Arm(ctx context.Context) error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -118,7 +118,7 @@ func (ts *TimingSystem) Start(ctx context.Context) error {
 	return nil
 }
 
-func (ts *TimingSystem) Stop() error {
+func (ts *TimingSystem) EmergencyStop() error {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 
@@ -216,7 +216,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 	// Update timing results if lane exists
 	if result, exists := ts.results[lane]; exists {
 		result.BeamTriggers[beamID] = triggerTime
-		
+
 		// Publish beam trigger event
 		if ts.eventBus != nil {
 			ts.eventBus.Publish(
@@ -242,7 +242,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				if reactionTime < 0 {
 					result.IsFoul = true
 					result.FoulReason = "red_light"
-					
+
 					// Publish red light event
 					if ts.eventBus != nil {
 						ts.eventBus.Publish(
@@ -261,7 +261,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 						)
 					}
 				}
-				
+
 				// Publish reaction time event
 				if ts.eventBus != nil {
 					ts.eventBus.Publish(
@@ -282,7 +282,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 			if !result.StartTime.IsZero() {
 				sixtyFootTime := triggerTime.Sub(result.StartTime).Seconds()
 				result.SixtyFootTime = &sixtyFootTime
-				
+
 				// Publish 60-foot event
 				if ts.eventBus != nil {
 					ts.eventBus.Publish(
@@ -301,7 +301,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				time330 := triggerTime.Sub(result.StartTime).Seconds()
 				// Note: Could add ThreeThirtyFootTime field if needed
 				_ = time330
-				
+
 				// Publish 330-foot event
 				if ts.eventBus != nil {
 					ts.eventBus.Publish(
@@ -319,7 +319,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 			if !result.StartTime.IsZero() {
 				eighthMileTime := triggerTime.Sub(result.StartTime).Seconds()
 				result.EighthMileTime = &eighthMileTime
-				
+
 				// Publish eighth-mile event
 				if ts.eventBus != nil {
 					ts.eventBus.Publish(
@@ -342,7 +342,7 @@ func (ts *TimingSystem) TriggerBeam(beamID string, lane int, triggerTime time.Ti
 				// Calculate trap speed (simplified calculation)
 				trapSpeed := 1320.0 / quarterMileTime * 0.681818 // Convert ft/s to mph
 				result.TrapSpeed = &trapSpeed
-				
+
 				// Publish quarter-mile event
 				if ts.eventBus != nil {
 					ts.eventBus.Publish(

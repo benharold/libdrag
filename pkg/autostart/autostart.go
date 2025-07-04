@@ -17,7 +17,7 @@ type AutoStartState string
 
 const (
 	StateIdle      AutoStartState = "idle"      // Not armed, waiting for vehicles
-	StateArmed     AutoStartState = "armed"     // Three lights detected, countdown started
+	StateActivated AutoStartState = "activated" // Three lights detected, countdown started
 	StateStaging   AutoStartState = "staging"   // Both vehicles staged, final checks
 	StateTriggered AutoStartState = "triggered" // Tree sequence initiated
 	StateFault     AutoStartState = "fault"     // Safety violation or timeout
@@ -297,19 +297,19 @@ func (as *AutoStartSystem) shouldTriggerAutoStart(oldPreStaged, oldStaged, newPr
 // triggerAutoStart initiates the auto-start countdown sequence
 func (as *AutoStartSystem) triggerAutoStart() {
 	oldState := as.status.State
-	as.status.State = StateArmed
+	as.status.State = StateActivated
 	as.status.CountdownStarted = time.Now()
 
 	// Automatically arm the tree component when three beams are detected
 	if as.tree != nil {
-		as.tree.ArmAutomatically()
+		as.tree.ActivateAutomatically()
 	}
 
 	if as.onStateChange != nil {
-		go as.onStateChange(oldState, StateArmed)
+		go as.onStateChange(oldState, StateActivated)
 	}
 
-	// Start countdown timer
+	// Arm countdown timer
 	as.countdownTimer = time.AfterFunc(as.config.StagingTimeout, func() {
 		as.mu.Lock()
 		defer as.mu.Unlock()
@@ -329,7 +329,7 @@ func (as *AutoStartSystem) monitorForFullStaging() {
 		select {
 		case <-ticker.C:
 			as.mu.Lock()
-			if as.status.State != StateArmed {
+			if as.status.State != StateActivated {
 				as.mu.Unlock()
 				return
 			}
@@ -347,7 +347,7 @@ func (as *AutoStartSystem) monitorForFullStaging() {
 				as.status.BothVehiclesStaged = time.Now()
 				as.status.State = StateStaging
 
-				// Start minimum staging timer
+				// Arm minimum staging timer
 				as.stagingTimer = time.AfterFunc(as.config.MinStagingDuration, func() {
 					as.mu.Lock()
 					defer as.mu.Unlock()

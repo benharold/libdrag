@@ -77,10 +77,10 @@ func TestTimingSystemStartStop(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start the timing system
-	err = ts.Start(context.Background())
+	// Arm the timing system
+	err = ts.Arm(context.Background())
 	if err != nil {
-		t.Fatalf("Start failed: %v", err)
+		t.Fatalf("Arm failed: %v", err)
 	}
 
 	status := ts.GetStatus()
@@ -88,10 +88,10 @@ func TestTimingSystemStartStop(t *testing.T) {
 		t.Fatalf("Expected status 'running', got '%s'", status.Status)
 	}
 
-	// Stop the timing system
-	err = ts.Stop()
+	// EmergencyStop the timing system
+	err = ts.EmergencyStop()
 	if err != nil {
-		t.Fatalf("Stop failed: %v", err)
+		t.Fatalf("EmergencyStop failed: %v", err)
 	}
 
 	status = ts.GetStatus()
@@ -138,7 +138,7 @@ func TestReactionTimeCalculation(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start race and add vehicles
+	// Arm race and add vehicles
 	ts.StartRace()
 	ts.AddVehicles([]int{1, 2})
 
@@ -176,7 +176,7 @@ func TestRedLightDetection(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start race and add vehicles
+	// Arm race and add vehicles
 	ts.StartRace()
 	ts.AddVehicles([]int{1, 2})
 

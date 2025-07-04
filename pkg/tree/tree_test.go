@@ -15,10 +15,10 @@ func TestNewChristmasTree(t *testing.T) {
 	}
 
 	status := tree.GetTreeStatus()
-	if status.IsArmed {
-		t.Fatal("Tree should not be armed initially")
+	if status.Armed {
+		t.Fatal("Auto-start should not be activated initially")
 	}
-	if status.IsRunning {
+	if status.Activated {
 		t.Fatal("Tree should not be running initially")
 	}
 }
@@ -56,7 +56,7 @@ func TestChristmasTreeLightStates(t *testing.T) {
 		t.Fatal("LightStates should be initialized")
 	}
 
-	// Check that we have light states for both lanes
+	// Check that we have light states for at least one lane
 	if len(treeStatus.LightStates) == 0 {
 		t.Fatal("Should have light states for at least one lane")
 	}
@@ -83,18 +83,12 @@ func TestPreStageSequence(t *testing.T) {
 	}
 
 	// Tree should not be armed with only one lane pre-staged
-	if status.IsArmed {
-		t.Fatal("Tree should not be armed with only one lane pre-staged")
+	if status.Armed {
+		t.Fatal("Auto-start should not be activated with only one lane pre-staged")
 	}
 
 	// Pre-stage lane 2
 	tree.SetPreStage(2)
-
-	// Now tree should be armed
-	status = tree.GetTreeStatus()
-	if !status.IsArmed {
-		t.Fatal("Tree should be armed when both lanes are pre-staged")
-	}
 }
 
 // Test Stage Light Logic using direct method calls
@@ -108,9 +102,9 @@ func TestStageSequence(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	err = tree.Start(context.Background())
+	err = tree.Arm(context.Background())
 	if err != nil {
-		t.Fatalf("Start failed: %v", err)
+		t.Fatalf("Arm failed: %v", err)
 	}
 
 	// Pre-stage both lanes first
@@ -119,11 +113,17 @@ func TestStageSequence(t *testing.T) {
 
 	// Stage lane 1
 	tree.SetStage(1)
+	tree.SetStage(2)
 
 	// Verify stage light is on for lane 1
 	status := tree.GetTreeStatus()
 	if status.LightStates[1][LightStage] != LightOn {
 		t.Fatal("Stage light should be on for lane 1")
+	}
+
+	// Verify stage light is on for lane 2
+	if status.LightStates[2][LightStage] != LightOn {
+		t.Fatal("Stage light should be on for lane 2")
 	}
 }
 
@@ -142,7 +142,7 @@ func TestProTreeSequence(t *testing.T) {
 	tree.SetPreStage(1)
 	tree.SetPreStage(2)
 
-	// Start Pro sequence
+	// Arm Pro sequence
 	err = tree.StartSequence(config.TreeSequencePro)
 	if err != nil {
 		t.Fatalf("StartSequence failed: %v", err)
@@ -150,7 +150,7 @@ func TestProTreeSequence(t *testing.T) {
 
 	// Verify sequence is running
 	status := tree.GetTreeStatus()
-	if !status.IsRunning {
+	if !status.Activated {
 		t.Fatal("Tree sequence should be running")
 	}
 

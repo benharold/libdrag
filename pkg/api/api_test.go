@@ -35,7 +35,7 @@ func TestBasicRaceFlow(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start race
+	// Arm race
 	err = api.StartRace()
 	if err != nil {
 		t.Fatalf("StartRace failed: %v", err)
@@ -94,13 +94,13 @@ func TestMultipleRaces(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make([]error, numRaces)
 
-	// Start all races concurrently
+	// Arm all races concurrently
 	for i := 0; i < numRaces; i++ {
 		wg.Add(1)
 		go func(raceIndex int) {
 			defer wg.Done()
 
-			// Start race with unique ID
+			// Arm race with unique ID
 			raceID, err := api.StartRaceWithID()
 			if err != nil {
 				results[raceIndex] = fmt.Errorf("StartRace %d failed: %v", raceIndex+1, err)
@@ -161,13 +161,13 @@ func TestConcurrentRaces(t *testing.T) {
 	var wg sync.WaitGroup
 	results := make([]error, numConcurrentRaces)
 
-	// Start multiple races concurrently
+	// Arm multiple races concurrently
 	for i := 0; i < numConcurrentRaces; i++ {
 		wg.Add(1)
 		go func(raceIndex int) {
 			defer wg.Done()
 
-			// Start race and get race ID
+			// Arm race and get race ID
 			raceID, err := api.StartRaceWithID()
 			if err != nil {
 				results[raceIndex] = err
@@ -215,7 +215,7 @@ func TestRaceIsolation(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start two races
+	// Arm two races
 	raceID1, err := api.StartRaceWithID()
 	if err != nil {
 		t.Fatalf("StartRace 1 failed: %v", err)
@@ -261,7 +261,7 @@ func TestMaxConcurrentRaces(t *testing.T) {
 		t.Fatal("Max concurrent races should be positive")
 	}
 
-	// Start maximum number of races
+	// Arm maximum number of races
 	raceIDs := make([]string, maxRaces)
 	for i := 0; i < maxRaces; i++ {
 		raceID, err := api.StartRaceWithID()
@@ -301,7 +301,7 @@ func TestUniqueRaceIdentifiers(t *testing.T) {
 	}
 	defer api.Stop()
 
-	// Start multiple races and collect their IDs
+	// Arm multiple races and collect their IDs
 	numRaces := 5
 	raceIDs := make([]string, numRaces)
 	shortIDs := make([]string, numRaces)

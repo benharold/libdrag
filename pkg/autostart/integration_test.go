@@ -29,13 +29,13 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 		t.Fatalf("Failed to initialize tree: %v", err)
 	}
 
-	// Start components
+	// Arm components
 	err = autoStart.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start auto-start: %v", err)
 	}
 
-	err = christmasTree.Start(context.Background())
+	err = christmasTree.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start tree: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 
 	// Verify auto-start system armed
 	status := autoStart.GetAutoStartStatus()
-	if status.State != StateArmed {
+	if status.State != StateActivated {
 		t.Errorf("Expected auto-start to be armed after three beams, got %v", status.State)
 	}
 
@@ -141,7 +141,7 @@ func TestManualVsAutomaticArming(t *testing.T) {
 	}
 
 	// Automatic arming
-	christmasTree.ArmAutomatically()
+	christmasTree.ActivateAutomatically()
 	if !christmasTree.IsArmed() {
 		t.Errorf("Tree should be armed after automatic arming")
 	}

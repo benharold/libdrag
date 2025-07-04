@@ -21,6 +21,7 @@ const (
 	EventTreeRedLight      EventType = "tree.red_light"
 	EventTreeSequenceStart EventType = "tree.sequence_start"
 	EventTreeSequenceEnd   EventType = "tree.sequence_end"
+	EventTreeEmergencyStop EventType = "tree.emergency_stop"
 
 	// Timing events
 	EventTimingBeamTrigger EventType = "timing.beam_trigger"

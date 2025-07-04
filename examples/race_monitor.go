@@ -198,7 +198,7 @@ func main() {
 	}
 	defer monitor.Shutdown()
 
-	// Start a race
+	// Arm a race
 	raceID, err := monitor.StartRace()
 	if err != nil {
 		log.Fatal("Failed to start race:", err)

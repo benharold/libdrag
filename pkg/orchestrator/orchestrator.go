@@ -79,7 +79,7 @@ func (ro *RaceOrchestrator) Initialize(ctx context.Context, components []compone
 		case *tree.ChristmasTree:
 			ro.christmasTree = c
 		}
-		
+
 		// If component supports events, set event bus and race ID
 		if eventAware, ok := comp.(component.EventAwareComponent); ok {
 			if ro.eventBus != nil {
@@ -101,9 +101,9 @@ func (ro *RaceOrchestrator) Initialize(ctx context.Context, components []compone
 		return fmt.Errorf("christmas tree component is required")
 	}
 
-	// Start components
+	// Arm components
 	for _, comp := range components {
-		if err := comp.Start(ctx); err != nil {
+		if err := comp.Arm(ctx); err != nil {
 			return fmt.Errorf("failed to start component %s: %v", comp.GetID(), err)
 		}
 	}
@@ -123,7 +123,7 @@ func (ro *RaceOrchestrator) StartRace(leftVehicle, rightVehicle *vehicle.SimpleV
 	ro.status.ActiveLanes = []int{1, 2}
 	ro.status.StartTime = time.Now()
 	ro.status.State = RaceStateStaging
-	
+
 	// Publish race start event
 	if ro.eventBus != nil {
 		ro.eventBus.Publish(
@@ -171,7 +171,7 @@ func (ro *RaceOrchestrator) simulateRaceSequence() {
 		ro.status.State = RaceStateRunning
 		ro.mu.Unlock()
 
-		// Start the Christmas tree sequence and get green light time
+		// Arm the Christmas tree sequence and get green light time
 		err := ro.christmasTree.StartSequence(config.TreeSequencePro)
 		if err != nil {
 			fmt.Printf("❌ Failed to start tree sequence: %v\n", err)
@@ -222,7 +222,7 @@ func (ro *RaceOrchestrator) simulateVehicleRun(greenTime time.Time) {
 	ro.mu.Lock()
 	ro.status.State = RaceStateComplete
 	ro.mu.Unlock()
-	
+
 	// Publish race complete event
 	if ro.eventBus != nil {
 		ro.eventBus.Publish(
@@ -252,7 +252,7 @@ func (ro *RaceOrchestrator) GetTimingSystem() *timing.TimingSystem {
 	return ro.timingSystem
 }
 
-func (ro *RaceOrchestrator) GetTreeStatus() *tree.TreeStatus {
+func (ro *RaceOrchestrator) GetTreeStatus() *tree.Status {
 	if ro.christmasTree == nil {
 		return nil
 	}

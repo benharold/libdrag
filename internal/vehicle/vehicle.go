@@ -64,12 +64,12 @@ func (v *SimpleVehicle) Initialize(ctx context.Context, cfg config.Config) error
 	return nil
 }
 
-func (v *SimpleVehicle) Start(ctx context.Context) error {
+func (v *SimpleVehicle) Arm(ctx context.Context) error {
 	v.status.Status = "running"
 	return nil
 }
 
-func (v *SimpleVehicle) Stop() error {
+func (v *SimpleVehicle) EmergencyStop() error {
 	v.status.Status = "stopped"
 	return nil
 }

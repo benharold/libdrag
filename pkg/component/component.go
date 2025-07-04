@@ -19,8 +19,8 @@ type ComponentStatus struct {
 type Component interface {
 	GetID() string
 	Initialize(ctx context.Context, config config.Config) error
-	Start(ctx context.Context) error
-	Stop() error
+	Arm(ctx context.Context) error
+	EmergencyStop() error
 	GetStatus() ComponentStatus
 }
 

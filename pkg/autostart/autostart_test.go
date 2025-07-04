@@ -47,8 +47,8 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 	system.UpdateVehicleStaging(1, true, true, 0)
 	time.Sleep(10 * time.Millisecond) // Allow processing
 	status = system.GetAutoStartStatus()
-	if status.State != StateArmed {
-		t.Errorf("Expected StateArmed after three lights, got %v", status.State)
+	if status.State != StateActivated {
+		t.Errorf("Expected StateActivated after three lights, got %v", status.State)
 	}
 }
 
@@ -77,8 +77,8 @@ func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 	// Verify we're in armed state
 	time.Sleep(10 * time.Millisecond)
 	status := system.GetAutoStartStatus()
-	if status.State != StateArmed {
-		t.Fatalf("Expected StateArmed after three-light rule, got %v", status.State)
+	if status.State != StateActivated {
+		t.Fatalf("Expected StateActivated after three-light rule, got %v", status.State)
 	}
 
 	// Don't stage the second vehicle - let it timeout
@@ -153,8 +153,8 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 	system.UpdateVehicleStaging(1, true, true, 0)
 	time.Sleep(10 * time.Millisecond) // Allow processing
 	status := system.GetAutoStartStatus()
-	if status.State != StateArmed {
-		t.Errorf("Expected StateArmed, got %v", status.State)
+	if status.State != StateActivated {
+		t.Errorf("Expected StateActivated, got %v", status.State)
 	}
 
 	// Step 3: Second vehicle stages (both staged)
@@ -201,15 +201,15 @@ func TestAutoStartSystem_ManualOverride(t *testing.T) {
 		t.Fatalf("Failed to start: %v", err)
 	}
 
-	// Start auto-start sequence
+	// Arm auto-start sequence
 	system.UpdateVehicleStaging(1, true, false, 0)
 	system.UpdateVehicleStaging(2, true, false, 0)
 	system.UpdateVehicleStaging(1, true, true, 0)
 
 	// Verify armed
 	status := system.GetAutoStartStatus()
-	if status.State != StateArmed {
-		t.Errorf("Expected StateArmed, got %v", status.State)
+	if status.State != StateActivated {
+		t.Errorf("Expected StateActivated, got %v", status.State)
 	}
 
 	// Manual override

@@ -11,7 +11,7 @@ import (
 	"github.com/benharold/libdrag/pkg/events"
 )
 
-// LightType defines different lights on the christmas tree
+// LightType defines different lights on the Christmas tree
 type LightType string
 
 const (
@@ -33,10 +33,10 @@ const (
 	LightBlink LightState = "blink"
 )
 
-// TreeStatus represents christmas tree state
-type TreeStatus struct {
-	IsArmed      bool                             `json:"is_armed"`
-	IsRunning    bool                             `json:"is_running"`
+// Status represents Christmas tree state
+type Status struct {
+	Armed        bool                             `json:"armed"`     // starter flipped the switch
+	Activated    bool                             `json:"activated"` // sequence is running
 	SequenceType config.TreeSequenceType          `json:"sequence_type"`
 	CurrentStep  int                              `json:"current_step"`
 	LightStates  map[int]map[LightType]LightState `json:"light_states"` // lane -> light -> state
@@ -44,14 +44,13 @@ type TreeStatus struct {
 	ArmingSource string                           `json:"arming_source,omitempty"` // "manual" or "auto-start"
 }
 
-// ChristmasTree implements the christmas tree component
+// ChristmasTree implements the Christmas tree component
 type ChristmasTree struct {
 	id             string
 	config         config.Config
 	mu             sync.RWMutex
-	status         TreeStatus
+	status         Status
 	compStatus     component.ComponentStatus
-	running        bool
 	lanesPreStaged map[int]bool
 	lanesStaged    map[int]bool
 	eventBus       *events.EventBus
@@ -61,9 +60,9 @@ type ChristmasTree struct {
 func NewChristmasTree() *ChristmasTree {
 	return &ChristmasTree{
 		id: "christmas_tree",
-		status: TreeStatus{
-			IsArmed:     false,
-			IsRunning:   false,
+		status: Status{
+			Armed:       false,
+			Activated:   false,
 			LightStates: make(map[int]map[LightType]LightState),
 		},
 		compStatus: component.ComponentStatus{
@@ -80,7 +79,7 @@ func (ct *ChristmasTree) GetID() string {
 	return ct.id
 }
 
-func (ct *ChristmasTree) Initialize(ctx context.Context, cfg config.Config) error {
+func (ct *ChristmasTree) Initialize(_ context.Context, cfg config.Config) error {
 	ct.config = cfg
 
 	// Initialize light states for all lanes
@@ -96,22 +95,54 @@ func (ct *ChristmasTree) Initialize(ctx context.Context, cfg config.Config) erro
 	return nil
 }
 
-func (ct *ChristmasTree) Start(ctx context.Context) error {
+func (ct *ChristmasTree) Arm(_ context.Context) error {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
-	ct.running = true
-	ct.compStatus.Status = "running"
-	fmt.Println("🎄 libdrag Christmas Tree: Started")
+	ct.status.Armed = true
+	ct.compStatus.Status = "armed"
+	fmt.Println("💪 libdrag Christmas Tree: Armed")
 	return nil
 }
 
-func (ct *ChristmasTree) Stop() error {
+func (ct *ChristmasTree) Activate() error {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
-	ct.running = false
-	ct.compStatus.Status = "stopped"
+	ct.status.Activated = true
+	ct.compStatus.Status = "activated"
+	fmt.Println("⏳ libdrag Christmas Tree: Activated")
+	return nil
+}
+
+func (ct *ChristmasTree) EmergencyStop() error {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	ct.status.Armed = false
+	ct.status.Activated = false
+	ct.compStatus.Status = "emergency_stopped"
+
+	// Clear all lights first
+	trackConfig := ct.config.Track()
+	for lane := 1; lane <= trackConfig.LaneCount; lane++ {
+		for _, lightType := range []LightType{LightPreStage, LightStage, LightAmber1, LightAmber2, LightAmber3, LightGreen, LightRed} {
+			ct.status.LightStates[lane][lightType] = LightOff
+			ct.status.LightStates[lane][LightRed] = LightBlink
+		}
+	}
+
+	fmt.Println("🚨 libdrag Christmas Tree: EMERGENCY STOP")
+
+	// Publish emergency stop event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeEmergencyStop).
+				WithRaceID(ct.raceID).
+				Build(),
+		)
+	}
+
 	return nil
 }
 
@@ -121,7 +152,7 @@ func (ct *ChristmasTree) GetStatus() component.ComponentStatus {
 	return ct.compStatus
 }
 
-func (ct *ChristmasTree) GetTreeStatus() TreeStatus {
+func (ct *ChristmasTree) GetTreeStatus() Status {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
 	return ct.status
@@ -159,31 +190,6 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 				Build(),
 		)
 	}
-
-	// Check if both lanes are pre-staged to arm the race
-	trackConfig := ct.config.Track()
-	allPreStaged := true
-	for laneNum := 1; laneNum <= trackConfig.LaneCount; laneNum++ {
-		if !ct.lanesPreStaged[laneNum] {
-			allPreStaged = false
-			break
-		}
-	}
-
-	if allPreStaged && !ct.status.IsArmed {
-		ct.status.IsArmed = true
-		ct.status.ArmingSource = "manual"
-		fmt.Println("🔥 libdrag Christmas Tree: ARMED - Both lanes pre-staged")
-
-		// Publish armed event
-		if ct.eventBus != nil {
-			ct.eventBus.Publish(
-				events.NewEvent(events.EventTreeArmed).
-					WithRaceID(ct.raceID).
-					Build(),
-			)
-		}
-	}
 }
 
 func (ct *ChristmasTree) SetStage(lane int) {
@@ -209,14 +215,14 @@ func (ct *ChristmasTree) SetStage(lane int) {
 func (ct *ChristmasTree) IsArmed() bool {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
-	return ct.status.IsArmed
+	return ct.status.Armed
 }
 
 func (ct *ChristmasTree) AllStaged() bool {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
 
-	if !ct.status.IsArmed {
+	if !ct.status.Armed {
 		return false
 	}
 
@@ -233,15 +239,15 @@ func (ct *ChristmasTree) StartSequence(sequenceType config.TreeSequenceType) err
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
-	if !ct.status.IsArmed {
+	if !ct.status.Armed {
 		return fmt.Errorf("tree is not armed")
 	}
 
-	if ct.status.IsRunning {
-		return fmt.Errorf("sequence already running")
+	if ct.status.Activated {
+		return fmt.Errorf("tree is not activated")
 	}
 
-	ct.status.IsRunning = true
+	ct.status.Activated = true
 	ct.status.SequenceType = sequenceType
 	ct.status.LastSequence = time.Now()
 
@@ -257,7 +263,7 @@ func (ct *ChristmasTree) StartSequence(sequenceType config.TreeSequenceType) err
 		)
 	}
 
-	// Start the sequence in a goroutine
+	// run the sequence in a goroutine
 	go ct.runSequence(sequenceType)
 
 	return nil
@@ -266,7 +272,7 @@ func (ct *ChristmasTree) StartSequence(sequenceType config.TreeSequenceType) err
 func (ct *ChristmasTree) runSequence(sequenceType config.TreeSequenceType) time.Time {
 	defer func() {
 		ct.mu.Lock()
-		ct.status.IsRunning = false
+		ct.status.Activated = false
 		ct.mu.Unlock()
 
 		// Publish sequence end event
@@ -392,16 +398,16 @@ func (ct *ChristmasTree) setAllLights(lightType LightType, state LightState) {
 	}
 }
 
-// ArmAutomatically arms the tree via the auto-start system (three-beam rule)
-func (ct *ChristmasTree) ArmAutomatically() {
+// ActivateAutomatically activates the tree via the auto-start system (three-beam rule)
+func (ct *ChristmasTree) ActivateAutomatically() {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
-	if ct.status.IsArmed {
+	if ct.status.Armed {
 		return // Already armed
 	}
 
-	ct.status.IsArmed = true
+	ct.status.Armed = true
 	ct.status.ArmingSource = "auto-start"
 	fmt.Println("🔥 libdrag Christmas Tree: ARMED - Auto-start system (three beams detected)")
 
@@ -422,11 +428,11 @@ func (ct *ChristmasTree) DisarmTree() {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
 
-	if !ct.status.IsArmed {
+	if !ct.status.Armed {
 		return
 	}
 
-	ct.status.IsArmed = false
+	ct.status.Armed = false
 	ct.status.ArmingSource = ""
 	fmt.Println("🔥 libdrag Christmas Tree: DISARMED")
 
