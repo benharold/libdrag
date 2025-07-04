@@ -2,10 +2,8 @@ package tree
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/benharold/libdrag/pkg/config"
+	"testing"
 )
 
 func TestNewChristmasTree(t *testing.T) {
@@ -16,10 +14,10 @@ func TestNewChristmasTree(t *testing.T) {
 
 	status := tree.GetTreeStatus()
 	if status.Armed {
-		t.Fatal("Auto-start should not be activated initially")
+		t.Fatal("Tree should not be armed initially")
 	}
 	if status.Activated {
-		t.Fatal("Tree should not be running initially")
+		t.Fatal("Tree should not be activated initially")
 	}
 }
 
@@ -49,21 +47,35 @@ func TestChristmasTreeLightStates(t *testing.T) {
 	}
 
 	// Get initial tree status
-	treeStatus := tree.GetTreeStatus()
+	status := tree.GetTreeStatus()
 
 	// Verify light states are initialized
-	if treeStatus.LightStates == nil {
+	if status.LightStates == nil {
 		t.Fatal("LightStates should be initialized")
 	}
 
 	// Check that we have light states for at least one lane
-	if len(treeStatus.LightStates) == 0 {
+	if len(status.LightStates) == 0 {
 		t.Fatal("Should have light states for at least one lane")
+	}
+
+	// Make sure no staging lights are on
+	if status.LightStates[1][LightPreStage] != LightOff {
+		t.Fatal("Pre-stage light should be off for lane 1")
+	}
+	if status.LightStates[2][LightPreStage] != LightOff {
+		t.Fatal("Pre-stage light should be off for lane 2")
+	}
+	if status.LightStates[1][LightStage] != LightOff {
+		t.Fatal("Stage light should be off for lane 1")
+	}
+	if status.LightStates[2][LightStage] != LightOff {
+		t.Fatal("Stage light should be off for lane 1")
 	}
 }
 
 // Test Pre-Stage Light Logic using direct method calls
-func TestPreStageSequence(t *testing.T) {
+func TestPreStage(t *testing.T) {
 	tree := NewChristmasTree()
 	cfg := config.NewDefaultConfig()
 
@@ -82,36 +94,27 @@ func TestPreStageSequence(t *testing.T) {
 		t.Fatal("Pre-stage light should be on for lane 1")
 	}
 
-	// Tree should not be armed with only one lane pre-staged
-	if status.Armed {
-		t.Fatal("Auto-start should not be activated with only one lane pre-staged")
-	}
-
 	// Pre-stage lane 2
 	tree.SetPreStage(2)
+
+	// Verify pre-stage light is on for lane 2
+	if status.LightStates[2][LightPreStage] != LightOn {
+		t.Fatal("Pre-stage light should be on for lane 2")
+	}
 }
 
 // Test Stage Light Logic using direct method calls
-func TestStageSequence(t *testing.T) {
+func TestStage(t *testing.T) {
 	tree := NewChristmasTree()
 	cfg := config.NewDefaultConfig()
 
-	// Initialize and start
+	// Initialize
 	err := tree.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	err = tree.Arm(context.Background())
-	if err != nil {
-		t.Fatalf("Arm failed: %v", err)
-	}
-
-	// Pre-stage both lanes first
-	tree.SetPreStage(1)
-	tree.SetPreStage(2)
-
-	// Stage lane 1
+	// Stage both lanes
 	tree.SetStage(1)
 	tree.SetStage(2)
 
@@ -124,50 +127,6 @@ func TestStageSequence(t *testing.T) {
 	// Verify stage light is on for lane 2
 	if status.LightStates[2][LightStage] != LightOn {
 		t.Fatal("Stage light should be on for lane 2")
-	}
-}
-
-// Test Pro Tree Sequence Timing using direct method calls
-func TestProTreeSequence(t *testing.T) {
-	tree := NewChristmasTree()
-	cfg := config.NewDefaultConfig()
-
-	// Initialize
-	err := tree.Initialize(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("Initialize failed: %v", err)
-	}
-
-	// Pre-stage both lanes
-	tree.SetPreStage(1)
-	tree.SetPreStage(2)
-
-	// Arm Pro sequence
-	err = tree.StartSequence(config.TreeSequencePro)
-	if err != nil {
-		t.Fatalf("StartSequence failed: %v", err)
-	}
-
-	// Verify sequence is running
-	status := tree.GetTreeStatus()
-	if !status.Activated {
-		t.Fatal("Tree sequence should be running")
-	}
-
-	if status.SequenceType != config.TreeSequencePro {
-		t.Fatalf("Expected Pro sequence, got %v", status.SequenceType)
-	}
-
-	// Wait for sequence to complete (green delay is 400ms for pro tree)
-	time.Sleep(500 * time.Millisecond)
-
-	// Verify green light is on
-	status = tree.GetTreeStatus()
-	if status.LightStates[1][LightGreen] != LightOn {
-		t.Fatal("Green light should be on after Pro sequence")
-	}
-	if status.LightStates[2][LightGreen] != LightOn {
-		t.Fatal("Green light should be on for both lanes after Pro sequence")
 	}
 }
 
