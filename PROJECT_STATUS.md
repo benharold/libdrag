@@ -285,4 +285,84 @@ Only Scenario: Starter arms tree → Auto-start system activates → Auto-start 
    - **Real System**: Both pre-staged + one staged + 0.6s stability = timer start
    - **Our System**: Immediate trigger on three beams
    - **Problem**: Vulnerable to staging manipulation tactics
-````
+
+### Deep Staging Model Gaps (Critical)
+
+**Based on deep staging research, our system lacks several critical racing class features:**
+
+1. **Missing Racing Class Restrictions**:
+   - **Real System**: Deep staging prohibited in Super Gas/Super Stock/Super Street classes
+   - **Our System**: No class-based deep staging restrictions
+   - **Problem**: Doesn't enforce real NHRA/IHRA class rules
+
+2. **Missing Deep Staging Modes**:
+   - **Real System**: Three distinct modes based on auto-start policy
+     - "Armed": Deep staging allowed but no tree delay
+     - "Honored": Tree waits for deep staging completion (requires driver indication)
+     - "Disabled": Starter has full discretion
+   - **Our System**: No deep staging mode configuration
+   - **Problem**: Missing critical track policy variations
+
+3. **Missing Driver Intent Signaling**:
+   - **Real System**: Drivers indicate deep staging intent (e.g., "DEEP" on windshield)
+   - **Our System**: No mechanism for driver communication
+   - **Problem**: System can't honor deep staging requests appropriately
+
+4. **Missing Deep Staging Timeout Logic**:
+   - **Real System**: Deep stagers must complete staging within timeout when auto-start armed
+   - **Our System**: No special handling for deep staging scenarios
+   - **Problem**: Doesn't model real-world deep staging time pressure
+
+### Auto-Start Control Model Gaps (Critical)
+
+**The research reveals our fundamental misunderstanding of the auto-start control sequence:**
+
+1. **Incorrect Armed/Activated States**:
+   - **Real System**: 
+     - "Armed" = Auto-start system turned on by starter, waiting
+     - "Activated" = Countdown timer started by staging conditions
+   - **Our System**: Conflates these states and uses incorrect terminology
+   - **Problem**: Fundamental misunderstanding of system operation
+
+2. **Missing Starter Control Phase**:
+   - **Real System**: "If track clear & switch is armed as both approach pre-stage, takes both to start, and can sit there both pre-staged all day (at least until the starter directs you both in)"
+   - **Our System**: No explicit starter direction phase
+   - **Problem**: Missing the "starter directs you both in" control point
+
+3. **Incorrect Trigger Sequence**:
+   - **Real System**: Armed → Staging conditions met → Activated → Timer/sequence
+   - **Our System**: Staging conditions → Armed (incorrect term) → Timer/sequence
+   - **Problem**: Missing the manual arming step by starter
+
+4. **Missing Auto-Start Switch Control**:
+   - **Real System**: Starter has physical switch to arm/disarm auto-start
+   - **Our System**: No explicit starter switch control
+   - **Problem**: Starter can't control when auto-start is available
+
+### Racing Class Policy Gaps (Medium Priority)
+
+**Our system lacks class-specific behavioral differences:**
+
+1. **Missing Class-Based Rules**:
+   - **Real System**: Different classes have different staging and timeout rules
+   - **Our System**: Generic configuration regardless of racing class
+   - **Problem**: Doesn't model real-world class variations
+
+2. **Missing Track Policy Configuration**:
+   - **Real System**: Tracks can configure deep staging policies per class
+   - **Our System**: No track-level policy management
+   - **Problem**: Can't simulate different track operational styles
+
+### System Manipulation Vulnerabilities (High Priority)
+
+**Research confirms our system is vulnerable to known manipulation tactics:**
+
+1. **Stage Light Manipulation**:
+   - **Real System**: 0.6-second stability requirement prevents "inching" tactics
+   - **Our System**: Immediate response allows manipulation
+   - **Problem**: Vulnerable to exact tactics the real system prevents
+
+2. **Missing Anti-Gaming Features**:
+   - **Real System**: Multiple safeguards against staging manipulation
+   - **Our System**: Basic beam detection only
+   - **Problem**: Lacks professional-grade anti-cheating measures
