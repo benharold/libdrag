@@ -81,8 +81,8 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 
 	// Verify arming source is auto-start
 	treeStatus := christmasTree.GetTreeStatus()
-	if treeStatus.ArmingSource != "auto-start" {
-		t.Errorf("Expected arming source to be 'auto-start', got '%s'", treeStatus.ArmingSource)
+	if treeStatus.ArmedBy != "auto-start" {
+		t.Errorf("Expected arming source to be 'auto-start', got '%s'", treeStatus.ArmedBy)
 	}
 
 	// Test 3: Complete staging (both vehicles staged) - should progress to staging state
@@ -104,7 +104,7 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 	t.Logf("✅ Three-beam automatic arming test completed successfully")
 	t.Logf("   • Auto-start state: %v", status.State)
 	t.Logf("   • Tree armed: %v", christmasTree.IsArmed())
-	t.Logf("   • Arming source: %v", treeStatus.ArmingSource)
+	t.Logf("   • Arming source: %v", treeStatus.ArmedBy)
 }
 
 // TestManualVsAutomaticArming verifies both arming methods work independently
@@ -130,8 +130,8 @@ func TestManualVsAutomaticArming(t *testing.T) {
 	}
 
 	status := christmasTree.GetTreeStatus()
-	if status.ArmingSource != "manual" {
-		t.Errorf("Expected manual arming source, got '%s'", status.ArmingSource)
+	if status.ArmedBy != "manual" {
+		t.Errorf("Expected manual arming source, got '%s'", status.ArmedBy)
 	}
 
 	// Reset and test automatic arming
@@ -147,8 +147,8 @@ func TestManualVsAutomaticArming(t *testing.T) {
 	}
 
 	status = christmasTree.GetTreeStatus()
-	if status.ArmingSource != "auto-start" {
-		t.Errorf("Expected auto-start arming source, got '%s'", status.ArmingSource)
+	if status.ArmedBy != "auto-start" {
+		t.Errorf("Expected auto-start arming source, got '%s'", status.ArmedBy)
 	}
 
 	t.Logf("✅ Manual vs automatic arming test completed successfully")

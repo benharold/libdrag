@@ -11,22 +11,20 @@ import (
 func TestNewBeamSystem(t *testing.T) {
 	// Arrange
 	eventBus := events.NewEventBus(false) // Add required boolean parameter
-	raceID := "test-race"
 
 	// Act
-	beamSystem := NewBeamSystem(eventBus, raceID)
+	beamSystem := NewBeamSystem(eventBus)
 
 	// Assert
 	assert.NotNil(t, beamSystem)
 	assert.NotNil(t, beamSystem.beams)
 	assert.Equal(t, eventBus, beamSystem.eventBus)
-	assert.Equal(t, raceID, beamSystem.raceID)
 }
 
 func TestBeamSystem_AddBeam(t *testing.T) {
 	// Arrange
 	eventBus := events.NewEventBus(false)
-	beamSystem := NewBeamSystem(eventBus, "test-race")
+	beamSystem := NewBeamSystem(eventBus)
 
 	// Act
 	lane := 1
@@ -45,7 +43,7 @@ func TestBeamSystem_AddBeam(t *testing.T) {
 func TestBeamSystem_BreakBeam(t *testing.T) {
 	// Arrange
 	eventBus := events.NewEventBus(false)
-	beamSystem := NewBeamSystem(eventBus, "test-race")
+	beamSystem := NewBeamSystem(eventBus)
 	lane := 1
 	position := 60.0
 	beamSystem.AddBeam(lane, position)
@@ -62,7 +60,7 @@ func TestBeamSystem_BreakBeam(t *testing.T) {
 func TestBeamSystem_RestoreBeam(t *testing.T) {
 	// Arrange
 	eventBus := events.NewEventBus(false)
-	beamSystem := NewBeamSystem(eventBus, "test-race")
+	beamSystem := NewBeamSystem(eventBus)
 	lane := 1
 	position := 60.0
 	beamSystem.AddBeam(lane, position)
@@ -80,7 +78,7 @@ func TestBeamSystem_RestoreBeam(t *testing.T) {
 func TestBeamSystem_GetBeamsForLane(t *testing.T) {
 	// Arrange
 	eventBus := events.NewEventBus(false)
-	beamSystem := NewBeamSystem(eventBus, "test-race")
+	beamSystem := NewBeamSystem(eventBus)
 	lane := 1
 	beamSystem.AddBeam(lane, 60.0)
 	beamSystem.AddBeam(lane, 330.0)

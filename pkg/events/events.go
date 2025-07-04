@@ -14,6 +14,7 @@ const (
 	EventTreePreStage      EventType = "tree.pre_stage"
 	EventTreeStage         EventType = "tree.stage"
 	EventTreeArmed         EventType = "tree.armed"
+	EventTreeActivated     EventType = "tree.activated" // Add missing event type
 	EventTreeDisarmed      EventType = "tree.disarmed"
 	EventTreeAmberOn       EventType = "tree.amber_on"
 	EventTreeAmberOff      EventType = "tree.amber_off"
@@ -38,10 +39,9 @@ const (
 	EventRaceAbort    EventType = "race.abort"
 	EventRaceFoul     EventType = "race.foul"
 
-	// Vehicle events
-	EventVehicleStaged   EventType = "vehicle.staged"
-	EventVehicleLeft     EventType = "vehicle.left"
-	EventVehicleFinished EventType = "vehicle.finished"
+	// Beam events
+	EventBeamBroken   EventType = "beam.broken"
+	EventBeamRestored EventType = "beam.restored"
 )
 
 // Event represents a racing event

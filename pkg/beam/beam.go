@@ -1,6 +1,7 @@
 package beam
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -19,9 +20,9 @@ const (
 	BeamStage     BeamID = "stage"
 	Beam60Foot    BeamID = "60_foot"
 	Beam330Foot   BeamID = "330_foot"
-	Beam660Foot   BeamID = "660_foot"  // 1/8 mile
-	Beam1000Foot  BeamID = "1000_foot" // 1/8 mile speed
-	Beam1320Foot  BeamID = "1320_foot" // 1/4 mile
+	Beam660Foot   BeamID = "660_foot"   // 1/8 mile
+	Beam1000Foot  BeamID = "1000_foot"  // 1/8 mile speed
+	Beam1320Foot  BeamID = "1320_foot"  // 1/4 mile
 	BeamSpeedTrap BeamID = "speed_trap" // 1/4 mile speed
 )
 
@@ -46,10 +47,11 @@ type BeamSystem struct {
 }
 
 // NewBeamSystem creates a new beam system
-func NewBeamSystem() *BeamSystem {
+func NewBeamSystem(eventBus *events.EventBus) *BeamSystem {
 	return &BeamSystem{
-		id:    "beam_system",
-		beams: make(map[int]map[BeamID]*BeamState),
+		id:       "beam_system",
+		beams:    make(map[int]map[BeamID]*BeamState),
+		eventBus: eventBus,
 		status: component.ComponentStatus{
 			ID:       "beam_system",
 			Status:   "stopped",
@@ -90,6 +92,18 @@ func (bs *BeamSystem) Initialize(ctx context.Context, cfg config.Config) error {
 
 	bs.status.Status = "ready"
 	return nil
+}
+
+func (bs *BeamSystem) AddBeam(beam *Beam) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	bs.beams[beam.ID] = beam
+}
+
+func (bs *BeamSystem) GetBeam(id string) *Beam {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	return bs.beams[id]
 }
 
 // Start begins beam system operation

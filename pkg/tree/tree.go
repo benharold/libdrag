@@ -36,13 +36,16 @@ const (
 
 // Status represents Christmas tree state
 type Status struct {
-	Armed        bool                             `json:"armed"`     // starter flipped the switch
-	Activated    bool                             `json:"activated"` // sequence is running
-	SequenceType config.TreeSequenceType          `json:"sequence_type"`
-	CurrentStep  int                              `json:"current_step"`
-	LightStates  map[int]map[LightType]LightState `json:"light_states"` // lane -> light -> state
-	LastSequence time.Time                        `json:"last_sequence,omitempty"`
-	ArmingSource string                           `json:"arming_source,omitempty"` // "manual" or "auto-start"
+	Armed          bool                             `json:"armed"`           // starter has enabled auto-start system
+	Activated      bool                             `json:"activated"`       // auto-start system detected staging conditions
+	StagingProcess bool                             `json:"staging_process"` // staging sequence is running
+	SequenceType   config.TreeSequenceType          `json:"sequence_type"`
+	CurrentStep    int                              `json:"current_step"`
+	LightStates    map[int]map[LightType]LightState `json:"light_states"` // lane -> light -> state
+	LastSequence   time.Time                        `json:"last_sequence,omitempty"`
+	ArmedBy        string                           `json:"armed_by,omitempty"`        // "starter" or "three-beam-rule"
+	ActivationTime time.Time                        `json:"activation_time,omitempty"` // when auto-start activated
+	StabilityTimer time.Time                        `json:"stability_timer,omitempty"` // for 0.6s stability requirement
 }
 
 // ChristmasTree implements the Christmas tree component
@@ -102,8 +105,76 @@ func (ct *ChristmasTree) Arm(_ context.Context) error {
 	defer ct.mu.Unlock()
 
 	ct.status.Armed = true
+	ct.status.ArmedBy = "starter"
 	ct.compStatus.Status = "armed"
-	fmt.Println("💪 libdrag Christmas Tree: Armed")
+	fmt.Println("💪 libdrag Christmas Tree: Armed by starter - Auto-start system enabled")
+
+	// Publish armed event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeArmed).
+				WithRaceID(ct.raceID).
+				WithData("armed_by", "starter").
+				Build(),
+		)
+	}
+
+	return nil
+}
+
+// ArmByThreeBeamRule arms the tree automatically when three beams are detected
+func (ct *ChristmasTree) ArmByThreeBeamRule() {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	if ct.status.Armed {
+		return // Already armed
+	}
+
+	ct.status.Armed = true
+	ct.status.ArmedBy = "three-beam-rule"
+	ct.compStatus.Status = "armed"
+	fmt.Println("🔥 libdrag Christmas Tree: Armed by three-beam rule - Auto-start system enabled")
+
+	// Publish armed event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeArmed).
+				WithRaceID(ct.raceID).
+				WithData("armed_by", "three-beam-rule").
+				Build(),
+		)
+	}
+}
+
+// ActivateAutoStart is called when auto-start system detects proper staging conditions
+func (ct *ChristmasTree) ActivateAutoStart() error {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	if !ct.status.Armed {
+		return fmt.Errorf("tree must be armed before auto-start can activate")
+	}
+
+	if ct.status.Activated {
+		return fmt.Errorf("auto-start system already activated")
+	}
+
+	ct.status.Activated = true
+	ct.status.ActivationTime = time.Now()
+	ct.compStatus.Status = "activated"
+	fmt.Println("⏳ libdrag Christmas Tree: Auto-start system activated - staging conditions detected")
+
+	// Publish activation event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeActivated).
+				WithRaceID(ct.raceID).
+				WithData("activation_time", ct.status.ActivationTime).
+				Build(),
+		)
+	}
+
 	return nil
 }
 
@@ -401,6 +472,7 @@ func (ct *ChristmasTree) setAllLights(lightType LightType, state LightState) {
 }
 
 // ActivateAutomatically activates the tree via the auto-start system (three-beam rule)
+// DEPRECATED: Use ArmByThreeBeamRule() instead - this method has incorrect terminology
 func (ct *ChristmasTree) ActivateAutomatically() {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
@@ -410,7 +482,8 @@ func (ct *ChristmasTree) ActivateAutomatically() {
 	}
 
 	ct.status.Armed = true
-	ct.status.ArmingSource = "auto-start"
+	ct.status.ArmedBy = "three-beam-rule" // Fixed: use ArmedBy instead of ArmingSource
+	ct.compStatus.Status = "armed"
 	fmt.Println("🔥 libdrag Christmas Tree: ARMED - Auto-start system (three beams detected)")
 
 	// Publish armed event
@@ -418,10 +491,79 @@ func (ct *ChristmasTree) ActivateAutomatically() {
 		ct.eventBus.Publish(
 			events.NewEvent(events.EventTreeArmed).
 				WithRaceID(ct.raceID).
-				WithData("arming_source", "auto-start").
+				WithData("armed_by", "three-beam-rule").
 				WithData("trigger", "three_beam_rule").
 				Build(),
 		)
+	}
+}
+
+// StartStagingProcess starts the staging process for the Christmas tree
+func (ct *ChristmasTree) StartStagingProcess(sequenceType config.TreeSequenceType) error {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	if !ct.status.Armed {
+		return fmt.Errorf("tree is not armed")
+	}
+
+	if !ct.status.Activated {
+		return fmt.Errorf("auto-start system is not activated")
+	}
+
+	if ct.status.StagingProcess {
+		return fmt.Errorf("staging process already running")
+	}
+
+	ct.status.StagingProcess = true
+	ct.status.SequenceType = sequenceType
+	ct.status.LastSequence = time.Now()
+	ct.compStatus.Status = "staging_process"
+
+	fmt.Printf("🎄 libdrag: Starting staging process - %s sequence\n", sequenceType)
+
+	// Publish staging process start event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeSequenceStart).
+				WithRaceID(ct.raceID).
+				WithData("sequence_type", string(sequenceType)).
+				Build(),
+		)
+	}
+
+	// run the sequence in a goroutine
+	go ct.runStagingSequence(sequenceType)
+
+	return nil
+}
+
+func (ct *ChristmasTree) runStagingSequence(sequenceType config.TreeSequenceType) time.Time {
+	defer func() {
+		ct.mu.Lock()
+		ct.status.StagingProcess = false
+		ct.mu.Unlock()
+
+		// Publish sequence end event
+		if ct.eventBus != nil {
+			ct.eventBus.Publish(
+				events.NewEvent(events.EventTreeSequenceEnd).
+					WithRaceID(ct.raceID).
+					WithData("sequence_type", string(sequenceType)).
+					Build(),
+			)
+		}
+	}()
+
+	treeConfig := ct.config.Tree()
+
+	switch sequenceType {
+	case config.TreeSequencePro:
+		return ct.runProSequence(treeConfig)
+	case config.TreeSequenceSportsman:
+		return ct.runSportsmanSequence(treeConfig)
+	default:
+		return ct.runProSequence(treeConfig)
 	}
 }
 
@@ -435,7 +577,12 @@ func (ct *ChristmasTree) DisarmTree() {
 	}
 
 	ct.status.Armed = false
-	ct.status.ArmingSource = ""
+	ct.status.Activated = false
+	ct.status.StagingProcess = false
+	ct.status.ArmedBy = ""
+	ct.status.ActivationTime = time.Time{}
+	ct.status.StabilityTimer = time.Time{}
+	ct.compStatus.Status = "ready"
 	fmt.Println("🔥 libdrag Christmas Tree: DISARMED")
 
 	// Publish disarmed event

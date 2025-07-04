@@ -423,8 +423,8 @@ func TestChristmasTreeDisarmTree(t *testing.T) {
 	if status.Armed {
 		t.Fatal("Tree should still not be armed after calling DisarmTree on unarmed tree")
 	}
-	if status.ArmingSource != "" {
-		t.Fatal("ArmingSource should remain empty when disarming unarmed tree")
+	if status.ArmedBy != "" { // Fixed: use ArmedBy instead of ArmingSource
+		t.Fatal("ArmedBy should be cleared after disarming")
 	}
 
 	// Now arm the tree and test normal disarm
@@ -447,7 +447,7 @@ func TestChristmasTreeDisarmTree(t *testing.T) {
 	if status.Armed {
 		t.Fatal("Tree should not be armed after calling DisarmTree()")
 	}
-	if status.ArmingSource != "" {
-		t.Fatal("ArmingSource should be cleared after disarming")
+	if status.ArmedBy != "" { // Fixed: use ArmedBy instead of ArmingSource
+		t.Fatal("ArmedBy should be cleared after disarming")
 	}
 }
