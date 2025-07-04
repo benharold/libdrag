@@ -12,19 +12,19 @@ import (
 // RaceMonitor demonstrates how to use libdrag's event system
 // to build a real-time race monitoring application
 type RaceMonitor struct {
-	api        *api.LibDragAPI
-	raceData   map[string]*RaceData
+	api         *api.LibDragAPI
+	raceData    map[string]*RaceData
 	currentRace string
 }
 
 type RaceData struct {
-	RaceID         string
-	StartTime      time.Time
-	Lane1RT        float64
-	Lane2RT        float64
-	Lane1Complete  bool
-	Lane2Complete  bool
-	Winner         int
+	RaceID        string
+	StartTime     time.Time
+	Lane1RT       float64
+	Lane2RT       float64
+	Lane1Complete bool
+	Lane2Complete bool
+	Winner        int
 }
 
 func NewRaceMonitor() *RaceMonitor {
@@ -76,7 +76,7 @@ func (rm *RaceMonitor) setupEventHandlers() {
 	})
 
 	rm.api.Subscribe(events.EventTreeAmberOn, func(e events.Event) {
-		if count, ok := e.Data["count"].(int); ok {
+		if _, ok := e.Data["count"].(int); ok {
 			// Pro tree - all three at once
 			fmt.Println("   💡💡💡 All ambers ON!")
 		} else if number, ok := e.Data["amber_number"].(int); ok {
@@ -100,7 +100,7 @@ func (rm *RaceMonitor) setupEventHandlers() {
 				data.Lane2RT = rt
 			}
 		}
-		
+
 		if rt < 0 {
 			fmt.Printf("   ❌ Lane %d: RED LIGHT! (RT: %.3fs)\n", e.Lane, rt)
 		} else {
@@ -121,14 +121,14 @@ func (rm *RaceMonitor) setupEventHandlers() {
 	rm.api.Subscribe(events.EventTimingQuarterMile, func(e events.Event) {
 		time := e.Data["time"].(float64)
 		speed := e.Data["trap_speed"].(float64)
-		
+
 		if data, ok := rm.raceData[e.RaceID]; ok {
 			if e.Lane == 1 {
 				data.Lane1Complete = true
 			} else {
 				data.Lane2Complete = true
 			}
-			
+
 			// Determine winner if both finished
 			if data.Lane1Complete && data.Lane2Complete {
 				if data.Lane1RT < 0 && data.Lane2RT >= 0 {
@@ -143,14 +143,14 @@ func (rm *RaceMonitor) setupEventHandlers() {
 				}
 			}
 		}
-		
+
 		fmt.Printf("   🏁 Lane %d: FINISH! ET: %.3fs @ %.1f mph\n", e.Lane, time, speed)
 	})
 
 	rm.api.Subscribe(events.EventRaceComplete, func(e events.Event) {
 		fmt.Println("\n================================")
 		fmt.Println("🏆 RACE COMPLETE!")
-		
+
 		if data, ok := rm.raceData[e.RaceID]; ok {
 			rm.printRaceSummary(data)
 		}
@@ -168,7 +168,7 @@ func (rm *RaceMonitor) printRaceSummary(data *RaceData) {
 	fmt.Printf("Race ID: %s\n", data.RaceID[:8])
 	fmt.Printf("Lane 1 RT: %.3fs\n", data.Lane1RT)
 	fmt.Printf("Lane 2 RT: %.3fs\n", data.Lane2RT)
-	
+
 	if data.Winner > 0 {
 		fmt.Printf("\n🥇 WINNER: Lane %d!\n", data.Winner)
 	} else if data.Winner == 0 {
@@ -191,7 +191,7 @@ func main() {
 	fmt.Println()
 
 	monitor := NewRaceMonitor()
-	
+
 	// Initialize the system
 	if err := monitor.Initialize(); err != nil {
 		log.Fatal("Failed to initialize:", err)

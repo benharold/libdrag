@@ -1,196 +1,284 @@
-// Package beam provides timing beam simulation for drag racing systems.
-//
-// This package models the physical timing infrastructure found on drag strips,
-// including staging beams, 60-foot timers, 330-foot timers, and finish line beams.
-// Each beam can detect when a vehicle passes through and publishes events
-// to notify other systems of timing changes.
-//
-// Example usage:
-//
-//	beamSystem := beam.NewBeamSystem(eventBus, "race-123")
-//	beamSystem.AddBeam(1, 60.0)  // Add 60ft beam to lane 1
-//	beamSystem.BreakBeam(1, 60.0) // Simulate car breaking beam
 package beam
 
 import (
-	"github.com/benharold/libdrag/pkg/events"
+	"fmt"
+	"sync"
 	"time"
+
+	"github.com/benharold/libdrag/pkg/component"
+	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 )
 
-// BeamSystem manages all timing beams for a drag racing event.
-//
-// The system organizes beams by lane and position, allowing efficient
-// lookup and management of timing infrastructure. It publishes events
-// when beam states change to notify other race systems.
-//
-// The nested map structure allows for quick access:
-//   - beams[lane][position] returns the beam at that specific location
-//   - Multiple beams per lane support staging, 60ft, 330ft, and finish timing
+// BeamID represents a specific beam identifier
+type BeamID string
+
+// Standard beam identifiers
+const (
+	BeamPreStage  BeamID = "pre_stage"
+	BeamStage     BeamID = "stage"
+	Beam60Foot    BeamID = "60_foot"
+	Beam330Foot   BeamID = "330_foot"
+	Beam660Foot   BeamID = "660_foot"  // 1/8 mile
+	Beam1000Foot  BeamID = "1000_foot" // 1/8 mile speed
+	Beam1320Foot  BeamID = "1320_foot" // 1/4 mile
+	BeamSpeedTrap BeamID = "speed_trap" // 1/4 mile speed
+)
+
+// BeamState represents the current state of a beam
+type BeamState struct {
+	BeamID     BeamID    `json:"beam_id"`
+	Lane       int       `json:"lane"`
+	Position   float64   `json:"position"`
+	IsBroken   bool      `json:"is_broken"`
+	LastChange time.Time `json:"last_change"`
+}
+
+// BeamSystem manages all timing beams on the track
 type BeamSystem struct {
-	// beams maps lane number to position to beam pointer.
-	// Lane numbers typically start at 1 (not 0-indexed).
-	// Positions are measured in feet from the starting line.
-	// Common positions: 0.0 (staging), 60.0, 330.0, 1320.0 (quarter mile)
-	beams map[int]map[float64]*Beam // lane -> position -> beam
-
-	// eventBus handles publishing beam break/restore events to other systems.
-	// Events notify timing systems, scoreboards, and race management.
+	id       string
+	mu       sync.RWMutex
+	beams    map[int]map[BeamID]*BeamState // lane -> beamID -> state
+	config   config.Config
 	eventBus *events.EventBus
-
-	// raceID identifies which race this beam system is monitoring.
-	// Allows multiple concurrent races with separate beam systems.
-	raceID string
+	raceID   string
+	status   component.ComponentStatus
 }
 
-// Beam represents a single timing beam at a specific track position.
-//
-// In drag racing, beams use infrared or laser technology to detect
-// when vehicles pass through. The beam tracks its current state
-// and the time of the last state change for precise timing.
-type Beam struct {
-	// Position is the distance in feet from the starting line.
-	// Standard NHRA positions:
-	//   0.0   - Pre-stage beam
-	//   7.0   - Stage beam
-	//   60.0  - 60-foot timer
-	//   330.0 - 330-foot timer
-	//   660.0 - 660-foot timer (eighth mile)
-	//   1000.0- 1000-foot timer
-	//   1320.0- Quarter mile finish line
-	Position float64
-
-	// Lane identifies which racing lane this beam monitors.
-	// Typically 1-2 for heads-up racing, but can support more lanes.
-	Lane int
-
-	// IsBroken indicates if the beam is currently broken (blocked).
-	// true = vehicle is currently blocking the beam
-	// false = beam path is clear
-	IsBroken bool
-
-	// LastChange records when the beam state last changed.
-	// Used for precise timing calculations and event ordering.
-	// Critical for determining elapsed times between beam breaks.
-	LastChange time.Time
-}
-
-// NewBeamSystem creates a new beam management system for a drag racing event.
-func NewBeamSystem(eventBus *events.EventBus, raceID string) *BeamSystem {
+// NewBeamSystem creates a new beam system
+func NewBeamSystem() *BeamSystem {
 	return &BeamSystem{
-		beams:    make(map[int]map[float64]*Beam),
-		eventBus: eventBus,
-		raceID:   raceID,
+		id:    "beam_system",
+		beams: make(map[int]map[BeamID]*BeamState),
+		status: component.ComponentStatus{
+			ID:       "beam_system",
+			Status:   "stopped",
+			Metadata: make(map[string]interface{}),
+		},
 	}
 }
 
-// AddBeam creates a new timing beam at the specified lane and position.
-func (bs *BeamSystem) AddBeam(lane int, position float64) {
-	// Initialize lane map if it doesn't exist
-	if bs.beams[lane] == nil {
-		bs.beams[lane] = make(map[float64]*Beam)
+// GetID returns the component ID
+func (bs *BeamSystem) GetID() string {
+	return bs.id
+}
+
+// Initialize sets up the beam system with track configuration
+func (bs *BeamSystem) Initialize(ctx context.Context, cfg config.Config) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.config = cfg
+	trackConfig := cfg.Track()
+
+	// Initialize beams for each lane based on beam layout
+	for lane := 1; lane <= trackConfig.LaneCount; lane++ {
+		bs.beams[lane] = make(map[BeamID]*BeamState)
+
+		// Create beam states from configuration
+		for beamID, beamConfig := range trackConfig.BeamLayout {
+			// Convert string beamID from config to BeamID type
+			bid := BeamID(beamID)
+			bs.beams[lane][bid] = &BeamState{
+				BeamID:   bid,
+				Lane:     lane,
+				Position: beamConfig.Position,
+				IsBroken: false,
+			}
+		}
 	}
 
-	// Create new beam
-	beam := &Beam{
-		Position:   position,
-		Lane:       lane,
-		IsBroken:   false,
-		LastChange: time.Now(),
+	bs.status.Status = "ready"
+	return nil
+}
+
+// Start begins beam system operation
+func (bs *BeamSystem) Start(ctx context.Context) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.status.Status = "running"
+	return nil
+}
+
+// Stop halts beam system operation
+func (bs *BeamSystem) Stop() error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	bs.status.Status = "stopped"
+	return nil
+}
+
+// GetStatus returns the component status
+func (bs *BeamSystem) GetStatus() component.ComponentStatus {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	return bs.status
+}
+
+// SetEventBus sets the event bus for publishing events
+func (bs *BeamSystem) SetEventBus(eventBus *events.EventBus) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	bs.eventBus = eventBus
+}
+
+// SetRaceID sets the race ID for event context
+func (bs *BeamSystem) SetRaceID(raceID string) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	bs.raceID = raceID
+}
+
+// TriggerBeam updates the state of a specific beam
+func (bs *BeamSystem) TriggerBeam(lane int, beamID BeamID, isBroken bool) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	// Validate lane exists
+	laneBeams, exists := bs.beams[lane]
+	if !exists {
+		return fmt.Errorf("lane %d does not exist", lane)
 	}
 
-	// Add beam to system
-	bs.beams[lane][position] = beam
+	// Validate beam exists
+	beam, exists := laneBeams[beamID]
+	if !exists {
+		return fmt.Errorf("beam %s does not exist in lane %d", beamID, lane)
+	}
 
-	// Publish beam added event
+	// Check if state actually changed
+	if beam.IsBroken == isBroken {
+		return nil // No change
+	}
+
+	// Update beam state
+	previousState := beam.IsBroken
+	beam.IsBroken = isBroken
+	beam.LastChange = time.Now()
+
+	// Publish appropriate event
 	if bs.eventBus != nil {
-		event := events.Event{
-			Type: "beam_added",
-			Data: map[string]interface{}{
-				"race_id":  bs.raceID,
-				"lane":     lane,
-				"position": position,
-				"time":     beam.LastChange,
-			},
+		eventType := events.EventBeamRestored
+		if isBroken {
+			eventType = events.EventBeamBroken
 		}
-		bs.eventBus.Publish(event)
+
+		bs.eventBus.Publish(
+			events.NewEvent(eventType).
+				WithRaceID(bs.raceID).
+				WithLane(lane).
+				WithData("beam_id", string(beamID)).
+				WithData("position", beam.Position).
+				WithData("previous_state", previousState).
+				WithData("timestamp", beam.LastChange).
+				Build(),
+		)
 	}
+
+	return nil
 }
 
-// BreakBeam simulates a timing beam being broken by a vehicle.
-func (bs *BeamSystem) BreakBeam(lane int, position float64) {
-	// Check if beam exists
-	if bs.beams[lane] == nil || bs.beams[lane][position] == nil {
-		return
+// GetBeamState returns the current state of a specific beam
+func (bs *BeamSystem) GetBeamState(lane int, beamID BeamID) (*BeamState, error) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
+	laneBeams, exists := bs.beams[lane]
+	if !exists {
+		return nil, fmt.Errorf("lane %d does not exist", lane)
 	}
 
-	beam := bs.beams[lane][position]
+	beam, exists := laneBeams[beamID]
+	if !exists {
+		return nil, fmt.Errorf("beam %s does not exist in lane %d", beamID, lane)
+	}
 
-	// Only break if not already broken
-	if !beam.IsBroken {
-		beam.IsBroken = true
-		beam.LastChange = time.Now()
+	// Return a copy to prevent external modification
+	stateCopy := *beam
+	return &stateCopy, nil
+}
 
-		// Publish beam break event
-		if bs.eventBus != nil {
-			event := events.Event{
-				Type: "beam_broken",
-				Data: map[string]interface{}{
-					"race_id":  bs.raceID,
-					"lane":     lane,
-					"position": position,
-					"time":     beam.LastChange,
-				},
+// GetLaneBeamStates returns all beam states for a specific lane
+func (bs *BeamSystem) GetLaneBeamStates(lane int) (map[BeamID]*BeamState, error) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
+	laneBeams, exists := bs.beams[lane]
+	if !exists {
+		return nil, fmt.Errorf("lane %d does not exist", lane)
+	}
+
+	// Return a copy of the map
+	result := make(map[BeamID]*BeamState)
+	for beamID, beam := range laneBeams {
+		stateCopy := *beam
+		result[beamID] = &stateCopy
+	}
+
+	return result, nil
+}
+
+// GetAllBeamStates returns all beam states for all lanes
+func (bs *BeamSystem) GetAllBeamStates() map[int]map[BeamID]*BeamState {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
+	// Create a deep copy
+	result := make(map[int]map[BeamID]*BeamState)
+	for lane, laneBeams := range bs.beams {
+		result[lane] = make(map[BeamID]*BeamState)
+		for beamID, beam := range laneBeams {
+			stateCopy := *beam
+			result[lane][beamID] = &stateCopy
+		}
+	}
+
+	return result
+}
+
+// ResetBeams resets all beams to unbroken state
+func (bs *BeamSystem) ResetBeams() {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	for _, laneBeams := range bs.beams {
+		for _, beam := range laneBeams {
+			if beam.IsBroken {
+				beam.IsBroken = false
+				beam.LastChange = time.Now()
 			}
-			bs.eventBus.Publish(event)
 		}
 	}
-}
 
-// RestoreBeam simulates a timing beam being restored after a vehicle passes.
-func (bs *BeamSystem) RestoreBeam(lane int, position float64) {
-	// Check if beam exists
-	if bs.beams[lane] == nil || bs.beams[lane][position] == nil {
-		return
-	}
-
-	beam := bs.beams[lane][position]
-
-	// Only restore if currently broken
-	if beam.IsBroken {
-		beam.IsBroken = false
-		beam.LastChange = time.Now()
-
-		// Publish beam restore event
-		if bs.eventBus != nil {
-			event := events.Event{
-				Type: "beam_restored",
-				Data: map[string]interface{}{
-					"race_id":  bs.raceID,
-					"lane":     lane,
-					"position": position,
-					"time":     beam.LastChange,
-				},
-			}
-			bs.eventBus.Publish(event)
-		}
+	// Publish reset event
+	if bs.eventBus != nil {
+		bs.eventBus.Publish(
+			events.NewEvent(events.EventType("beam.reset_all")).
+				WithRaceID(bs.raceID).
+				Build(),
+		)
 	}
 }
 
-// GetBeam returns the beam at the specified lane and position.
-func (bs *BeamSystem) GetBeam(lane int, position float64) *Beam {
-	if bs.beams[lane] == nil {
-		return nil
+// ValidateBeamSequence checks if beams are being triggered in proper order
+func (bs *BeamSystem) ValidateBeamSequence(lane int) error {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+
+	laneBeams, exists := bs.beams[lane]
+	if !exists {
+		return fmt.Errorf("lane %d does not exist", lane)
 	}
-	return bs.beams[lane][position]
-}
 
-// GetBeamsForLane returns all beams for a specific lane.
-func (bs *BeamSystem) GetBeamsForLane(lane int) map[float64]*Beam {
-	return bs.beams[lane]
-}
+	// Check staging sequence - pre-stage should be broken before stage
+	preStage, _ := laneBeams[BeamPreStage]
+	stage, _ := laneBeams[BeamStage]
 
-// IsBeamBroken checks if a beam at the specified position is currently broken.
-func (bs *BeamSystem) IsBeamBroken(lane int, position float64) bool {
-	beam := bs.GetBeam(lane, position)
-	return beam != nil && beam.IsBroken
+	if stage != nil && stage.IsBroken && preStage != nil && !preStage.IsBroken {
+		return fmt.Errorf("invalid staging sequence: stage beam broken before pre-stage beam")
+	}
+
+	return nil
 }

@@ -14,6 +14,7 @@ const (
 	EventTreePreStage      EventType = "tree.pre_stage"
 	EventTreeStage         EventType = "tree.stage"
 	EventTreeArmed         EventType = "tree.armed"
+	EventTreeDisarmed      EventType = "tree.disarmed"
 	EventTreeAmberOn       EventType = "tree.amber_on"
 	EventTreeAmberOff      EventType = "tree.amber_off"
 	EventTreeGreenOn       EventType = "tree.green_on"

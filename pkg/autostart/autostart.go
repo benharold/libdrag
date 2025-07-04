@@ -9,6 +9,7 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/tree"
 )
 
 // AutoStartState represents the current state of the auto-start system
@@ -78,6 +79,9 @@ type AutoStartSystem struct {
 	compStatus component.ComponentStatus
 	running    bool
 	testMode   bool
+
+	// Component integration
+	tree *tree.ChristmasTree // Reference to tree component for automatic arming
 
 	// Event handlers
 	onTreeTrigger func() error
@@ -296,6 +300,11 @@ func (as *AutoStartSystem) triggerAutoStart() {
 	as.status.State = StateArmed
 	as.status.CountdownStarted = time.Now()
 
+	// Automatically arm the tree component when three beams are detected
+	if as.tree != nil {
+		as.tree.ArmAutomatically()
+	}
+
 	if as.onStateChange != nil {
 		go as.onStateChange(oldState, StateArmed)
 	}
@@ -354,8 +363,13 @@ func (as *AutoStartSystem) monitorForFullStaging() {
 
 // triggerTreeSequence initiates the Christmas tree sequence with random delay
 func (as *AutoStartSystem) triggerTreeSequence() {
-	// Calculate random delay
-	randomDelay := as.calculateRandomDelay()
+	// In test mode, use minimal delay to ensure reliable testing
+	var randomDelay time.Duration
+	if as.testMode {
+		randomDelay = 1 * time.Millisecond // Very short delay for tests
+	} else {
+		randomDelay = as.calculateRandomDelay()
+	}
 
 	// Schedule tree trigger
 	time.AfterFunc(randomDelay, func() {
@@ -526,4 +540,13 @@ func (as *AutoStartSystem) SetTestMode(enabled bool) {
 		as.config.RandomDelayMin = 1 * time.Millisecond
 		as.config.RandomDelayMax = 3 * time.Millisecond
 	}
+}
+
+// Component integration methods
+
+// SetTreeComponent sets the tree component reference for automatic arming
+func (as *AutoStartSystem) SetTreeComponent(treeComponent *tree.ChristmasTree) {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.tree = treeComponent
 }

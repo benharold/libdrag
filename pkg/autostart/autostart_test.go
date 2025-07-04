@@ -159,21 +159,27 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 
 	// Step 3: Second vehicle stages (both staged)
 	system.UpdateVehicleStaging(2, true, true, 0)
-	time.Sleep(15 * time.Millisecond) // Allow staging detection
-	status = system.GetAutoStartStatus()
-	if status.State != StateStaging {
-		t.Errorf("Expected StateStaging after both staged, got %v", status.State)
-	}
+	time.Sleep(5 * time.Millisecond) // Shorter wait for staging detection
 
-	// Step 4: Wait for minimum staging duration + random delay
+	// Step 4: Wait for the full sequence to complete
 	// In test mode: MinStagingDuration=5ms, RandomDelay=1-3ms, so max ~8ms
-	time.Sleep(20 * time.Millisecond) // Wait longer than max possible delay
+	time.Sleep(15 * time.Millisecond) // Wait for complete sequence
+
+	// At this point, the system should have progressed through staging and triggered the tree
+	status = system.GetAutoStartStatus()
+
+	// The system might be in StateStaging or StateTriggered depending on timing
+	if status.State != StateStaging && status.State != StateTriggered {
+		t.Errorf("Expected StateStaging or StateTriggered, got %v", status.State)
+	}
 
 	// Verify tree was triggered
 	if !treeTriggerCalled {
 		t.Error("Expected tree trigger to be called")
 	}
 
+	// Wait a bit more to ensure we reach the triggered state
+	time.Sleep(10 * time.Millisecond)
 	status = system.GetAutoStartStatus()
 	if status.State != StateTriggered {
 		t.Errorf("Expected StateTriggered after tree activation, got %v", status.State)

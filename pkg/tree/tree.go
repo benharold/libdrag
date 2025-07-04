@@ -41,6 +41,7 @@ type TreeStatus struct {
 	CurrentStep  int                              `json:"current_step"`
 	LightStates  map[int]map[LightType]LightState `json:"light_states"` // lane -> light -> state
 	LastSequence time.Time                        `json:"last_sequence,omitempty"`
+	ArmingSource string                           `json:"arming_source,omitempty"` // "manual" or "auto-start"
 }
 
 // ChristmasTree implements the christmas tree component
@@ -148,7 +149,7 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 	ct.lanesPreStaged[lane] = true
 
 	fmt.Printf("🟡 libdrag: Pre-stage light ON for lane %d\n", lane)
-	
+
 	// Publish pre-stage event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -171,8 +172,9 @@ func (ct *ChristmasTree) SetPreStage(lane int) {
 
 	if allPreStaged && !ct.status.IsArmed {
 		ct.status.IsArmed = true
+		ct.status.ArmingSource = "manual"
 		fmt.Println("🔥 libdrag Christmas Tree: ARMED - Both lanes pre-staged")
-		
+
 		// Publish armed event
 		if ct.eventBus != nil {
 			ct.eventBus.Publish(
@@ -192,7 +194,7 @@ func (ct *ChristmasTree) SetStage(lane int) {
 	ct.lanesStaged[lane] = true
 
 	fmt.Printf("🟡 libdrag: Stage light ON for lane %d\n", lane)
-	
+
 	// Publish stage event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -244,7 +246,7 @@ func (ct *ChristmasTree) StartSequence(sequenceType config.TreeSequenceType) err
 	ct.status.LastSequence = time.Now()
 
 	fmt.Printf("🎄 libdrag: Starting %s sequence\n", sequenceType)
-	
+
 	// Publish sequence start event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -266,7 +268,7 @@ func (ct *ChristmasTree) runSequence(sequenceType config.TreeSequenceType) time.
 		ct.mu.Lock()
 		ct.status.IsRunning = false
 		ct.mu.Unlock()
-		
+
 		// Publish sequence end event
 		if ct.eventBus != nil {
 			ct.eventBus.Publish(
@@ -297,7 +299,7 @@ func (ct *ChristmasTree) runProSequence(cfg config.TreeSequenceConfig) time.Time
 	ct.setAllLights(LightAmber1, LightOn)
 	ct.setAllLights(LightAmber2, LightOn)
 	ct.setAllLights(LightAmber3, LightOn)
-	
+
 	// Publish amber event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -320,7 +322,7 @@ func (ct *ChristmasTree) runProSequence(cfg config.TreeSequenceConfig) time.Time
 
 	greenTime := time.Now()
 	fmt.Println("🟢 libdrag: GREEN LIGHT! GO GO GO!")
-	
+
 	// Publish green light event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -341,7 +343,7 @@ func (ct *ChristmasTree) runSportsmanSequence(cfg config.TreeSequenceConfig) tim
 	for i, light := range amberLights {
 		fmt.Printf("🟡 libdrag: Amber %d ON\n", i+1)
 		ct.setAllLights(light, LightOn)
-		
+
 		// Publish amber event for each light
 		if ct.eventBus != nil {
 			ct.eventBus.Publish(
@@ -369,7 +371,7 @@ func (ct *ChristmasTree) runSportsmanSequence(cfg config.TreeSequenceConfig) tim
 
 	greenTime := time.Now()
 	fmt.Println("🟢 libdrag: GREEN LIGHT! GO GO GO!")
-	
+
 	// Publish green light event
 	if ct.eventBus != nil {
 		ct.eventBus.Publish(
@@ -387,5 +389,53 @@ func (ct *ChristmasTree) setAllLights(lightType LightType, state LightState) {
 	trackConfig := ct.config.Track()
 	for lane := 1; lane <= trackConfig.LaneCount; lane++ {
 		ct.status.LightStates[lane][lightType] = state
+	}
+}
+
+// ArmAutomatically arms the tree via the auto-start system (three-beam rule)
+func (ct *ChristmasTree) ArmAutomatically() {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	if ct.status.IsArmed {
+		return // Already armed
+	}
+
+	ct.status.IsArmed = true
+	ct.status.ArmingSource = "auto-start"
+	fmt.Println("🔥 libdrag Christmas Tree: ARMED - Auto-start system (three beams detected)")
+
+	// Publish armed event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeArmed).
+				WithRaceID(ct.raceID).
+				WithData("arming_source", "auto-start").
+				WithData("trigger", "three_beam_rule").
+				Build(),
+		)
+	}
+}
+
+// DisarmTree disarms the tree (for manual control or system reset)
+func (ct *ChristmasTree) DisarmTree() {
+	ct.mu.Lock()
+	defer ct.mu.Unlock()
+
+	if !ct.status.IsArmed {
+		return
+	}
+
+	ct.status.IsArmed = false
+	ct.status.ArmingSource = ""
+	fmt.Println("🔥 libdrag Christmas Tree: DISARMED")
+
+	// Publish disarmed event
+	if ct.eventBus != nil {
+		ct.eventBus.Publish(
+			events.NewEvent(events.EventTreeDisarmed).
+				WithRaceID(ct.raceID).
+				Build(),
+		)
 	}
 }
