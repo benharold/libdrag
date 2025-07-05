@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/tree"
 )
 
 func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 	system := NewAutoStartSystem()
-	system.SetTestMode(true)
+	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
@@ -18,9 +19,21 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
+	err = christmasTree.Initialize(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Failed to initialize tree: %v", err)
+	}
+
 	err = system.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
+	}
+
+	// Connect tree and arm it (required for auto-start to work)
+	system.SetTreeComponent(christmasTree)
+	err = christmasTree.Arm(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to arm tree: %v", err)
 	}
 
 	// Test that system starts in idle state
@@ -29,7 +42,7 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 		t.Errorf("Expected StateIdle, got %v", status.State)
 	}
 
-	// Stage one vehicle pre-stage only - should not trigger
+	// Stage first vehicle pre-stage only - should not trigger
 	system.UpdateVehicleStaging(1, true, false, 0)
 	status = system.GetAutoStartStatus()
 	if status.State != StateIdle {
@@ -43,7 +56,7 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 		t.Errorf("Expected StateIdle after two pre-stages, got %v", status.State)
 	}
 
-	// Stage one vehicle fully - should trigger three-light rule
+	// Stage one vehicle fully - should trigger three-light rule (tree is armed)
 	system.UpdateVehicleStaging(1, true, true, 0)
 	time.Sleep(10 * time.Millisecond) // Allow processing
 	status = system.GetAutoStartStatus()
@@ -54,11 +67,17 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 
 func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 	system := NewAutoStartSystem()
+	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Failed to initialize: %v", err)
+	}
+
+	err = christmasTree.Initialize(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Failed to initialize tree: %v", err)
 	}
 
 	// Set test mode AFTER initialization to override the loaded config
@@ -69,12 +88,19 @@ func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 		t.Fatalf("Failed to start: %v", err)
 	}
 
+	// Connect tree and arm it (required for auto-start to work)
+	system.SetTreeComponent(christmasTree)
+	err = christmasTree.Arm(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to arm tree: %v", err)
+	}
+
 	// Trigger auto-start with three-light rule
 	system.UpdateVehicleStaging(1, true, false, 0)
 	system.UpdateVehicleStaging(2, true, false, 0)
 	system.UpdateVehicleStaging(1, true, true, 0) // This triggers auto-start
 
-	// Verify we're in armed state
+	// Verify we're in activated state
 	time.Sleep(10 * time.Millisecond)
 	status := system.GetAutoStartStatus()
 	if status.State != StateActivated {
@@ -123,11 +149,17 @@ func TestAutoStartSystem_GuardBeamViolation(t *testing.T) {
 
 func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 	system := NewAutoStartSystem()
+	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Failed to initialize: %v", err)
+	}
+
+	err = christmasTree.Initialize(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Failed to initialize tree: %v", err)
 	}
 
 	// Set test mode AFTER initialization to override the loaded config
@@ -136,6 +168,13 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 	err = system.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
+	}
+
+	// Connect tree and arm it (required for auto-start to work)
+	system.SetTreeComponent(christmasTree)
+	err = christmasTree.Arm(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to arm tree: %v", err)
 	}
 
 	// Track tree trigger
@@ -188,6 +227,7 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 
 func TestAutoStartSystem_ManualOverride(t *testing.T) {
 	system := NewAutoStartSystem()
+	christmasTree := tree.NewChristmasTree()
 	system.SetTestMode(true)
 
 	cfg := config.NewDefaultConfig()
@@ -196,9 +236,21 @@ func TestAutoStartSystem_ManualOverride(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
+	err = christmasTree.Initialize(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("Failed to initialize tree: %v", err)
+	}
+
 	err = system.Start(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
+	}
+
+	// Connect tree and arm it (required for auto-start to work)
+	system.SetTreeComponent(christmasTree)
+	err = christmasTree.Arm(context.Background())
+	if err != nil {
+		t.Fatalf("Failed to arm tree: %v", err)
 	}
 
 	// Arm auto-start sequence
@@ -206,7 +258,8 @@ func TestAutoStartSystem_ManualOverride(t *testing.T) {
 	system.UpdateVehicleStaging(2, true, false, 0)
 	system.UpdateVehicleStaging(1, true, true, 0)
 
-	// Verify armed
+	// Verify activated
+	time.Sleep(10 * time.Millisecond) // Allow processing
 	status := system.GetAutoStartStatus()
 	if status.State != StateActivated {
 		t.Errorf("Expected StateActivated, got %v", status.State)

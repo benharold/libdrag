@@ -48,11 +48,11 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 	if autoStart.GetAutoStartStatus().State != StateIdle {
 		t.Errorf("Expected auto-start to be in idle state")
 	}
-	if christmasTree.IsArmed() {
-		t.Errorf("Expected tree to not be armed initially")
+	if !christmasTree.IsArmed() {
+		t.Errorf("Expected tree to be armed after starter armed it in setup")
 	}
 
-	// Test 1: Two pre-stage beams only (should not trigger)
+	// Test 1: Two pre-stage beams only (should not trigger auto-start activation)
 	autoStart.UpdateVehicleStaging(1, true, false, 0) // Lane 1 pre-stage
 	autoStart.UpdateVehicleStaging(2, true, false, 0) // Lane 2 pre-stage
 	time.Sleep(10 * time.Millisecond)
@@ -60,8 +60,9 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 	if autoStart.GetAutoStartStatus().State != StateIdle {
 		t.Errorf("Expected auto-start to remain idle with only two pre-stage beams")
 	}
-	if christmasTree.IsArmed() {
-		t.Errorf("Expected tree to not be armed with only two pre-stage beams")
+	// Tree should remain armed (it was armed by starter, not by beam conditions)
+	if !christmasTree.IsArmed() {
+		t.Errorf("Expected tree to remain armed (tree was armed by starter)")
 	}
 
 	// Test 2: Add third beam (one stage) - should trigger three-beam rule
@@ -79,10 +80,10 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 		t.Errorf("Expected tree to be automatically armed after three beams")
 	}
 
-	// Verify arming source is auto-start
+	// Verify tree is armed (but we don't check ArmedBy since that field was removed)
 	treeStatus := christmasTree.GetTreeStatus()
-	if treeStatus.ArmedBy != "auto-start" {
-		t.Errorf("Expected arming source to be 'auto-start', got '%s'", treeStatus.ArmedBy)
+	if !treeStatus.Armed {
+		t.Errorf("Expected tree to be armed by auto-start system")
 	}
 
 	// Test 3: Complete staging (both vehicles staged) - should progress to staging state
@@ -104,52 +105,4 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 	t.Logf("✅ Three-beam automatic arming test completed successfully")
 	t.Logf("   • Auto-start state: %v", status.State)
 	t.Logf("   • Tree armed: %v", christmasTree.IsArmed())
-	t.Logf("   • Arming source: %v", treeStatus.ArmedBy)
-}
-
-// TestManualVsAutomaticArming verifies both arming methods work independently
-func TestManualVsAutomaticArming(t *testing.T) {
-	// Test manual arming (existing behavior)
-	christmasTree := tree.NewChristmasTree()
-	cfg := config.NewDefaultConfig()
-
-	err := christmasTree.Initialize(context.Background(), cfg)
-	if err != nil {
-		t.Fatalf("Failed to initialize tree: %v", err)
-	}
-
-	// Manual arming via pre-stage
-	christmasTree.SetPreStage(1) // Lane 1 pre-stage
-	if christmasTree.IsArmed() {
-		t.Errorf("Tree should not be armed with only one pre-stage")
-	}
-
-	christmasTree.SetPreStage(2) // Lane 2 pre-stage
-	if !christmasTree.IsArmed() {
-		t.Errorf("Tree should be armed when both lanes are pre-staged (manual)")
-	}
-
-	status := christmasTree.GetTreeStatus()
-	if status.ArmedBy != "manual" {
-		t.Errorf("Expected manual arming source, got '%s'", status.ArmedBy)
-	}
-
-	// Reset and test automatic arming
-	christmasTree.DisarmTree()
-	if christmasTree.IsArmed() {
-		t.Errorf("Tree should be disarmed after reset")
-	}
-
-	// Automatic arming
-	christmasTree.ActivateAutomatically()
-	if !christmasTree.IsArmed() {
-		t.Errorf("Tree should be armed after automatic arming")
-	}
-
-	status = christmasTree.GetTreeStatus()
-	if status.ArmedBy != "auto-start" {
-		t.Errorf("Expected auto-start arming source, got '%s'", status.ArmedBy)
-	}
-
-	t.Logf("✅ Manual vs automatic arming test completed successfully")
 }

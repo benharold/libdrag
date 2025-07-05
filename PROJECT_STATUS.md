@@ -198,171 +198,80 @@ pkg/
 
 ## Current Implementation Concerns & Clarifications
 
-### Terminology Issues (Not Yet Addressed)
+### Terminology Clarification (CORRECTED UNDERSTANDING)
 
-**Problem 1: Conflicting "Armed" States**
-Our current implementation uses confusing terminology:
-- We say the "Christmas tree is armed" 
-- We also say the "auto-start system is armed"
-- This creates ambiguity about which component controls what
+**CORRECT TERMINOLOGY**:
+- **"Christmas Tree is Armed"** = Auto-start system is in control and will activate the starting sequence when auto-start conditions (3 beam rule) are met
+- **"Christmas Tree is Not Armed"** = Auto-start system is not in control; pre-stage/stage beams can be broken with no consequences
+- **Auto-start system behavior**:
+  - When tree is armed: Auto-start WILL activate starting sequence according to 3 beam rule
+  - When tree is not armed: Auto-start will NOT activate starting sequence regardless of beam states
 
-**Correct Terminology Should Be**:
-- **Christmas Tree**: Should be "armed" when ready to begin a sequence
-- **Auto-Start System**: Should be "activated" when the tree is armed, not "armed" itself
+**This means our implementation needs significant restructuring:**
 
-**Problem 2: Misunderstood Control Flow**
-Current implementation suggests two separate arming modes:
-- Manual arming (starter controls everything)
-- Automatic arming (auto-start controls everything)
+### Current Implementation Problems (Based on Corrected Understanding) - ✅ RESOLVED
 
-**Real-World Behavior Should Be**:
-- Auto-start is **always** used once the tree is armed
-- The starter's role is to **choose when to arm the tree**
-- Once armed, auto-start system takes over regardless of beam states
-- Starter doesn't manually trigger the starting sequence
+**Problem 1: Incorrect Control Model** - ✅ **FIXED**
+~~Our current implementation has two separate "arming" concepts:~~
+- ~~"Manual arming" (tree armed by both pre-staged)~~
+- ~~"Automatic arming" (tree armed by three beams)~~
 
-### Current Implementation vs. Real-World Reality
+**✅ Correct Model Now Implemented**:
+- **Starter Decision**: Starter decides when to arm the tree (manual decision) ✅
+- **Auto-Start Control**: Once armed, auto-start system controls everything according to 3 beam rule ✅
+- **No "automatic arming"**: The tree doesn't arm itself - only the starter arms it ✅
 
-**What We Implemented**:
+**Problem 2: Misunderstood "Three Beam Rule"** - ✅ **FIXED**
+~~Current understanding: "Three beams broken = tree arms automatically"~~
+**✅ Correct understanding now implemented**: "Three beams broken = auto-start activates sequence (only if tree is already armed)"
+
+**Problem 3: Missing Starter Control** - ✅ **FIXED**
+- **Real System**: Starter has explicit control to arm/disarm the tree ✅
+- **Our System**: Tree can only be armed/disarmed by starter ✅
+- **Fixed**: Starter has complete control over when auto-start system takes control ✅
+
+### Code Areas Successfully Updated
+
+1. **Tree Status Model** (`pkg/tree/tree.go`) - ✅ **FIXED**:
+   - ✅ Removed misleading `ArmingSource` field
+   - ✅ Simplified to `Armed` boolean (starter-controlled only)
+   - ✅ Tree only cares WHETHER it's armed, not HOW it was armed
+
+2. **Auto-Start Control Logic** (`pkg/autostart/autostart.go`) - ✅ **FIXED**:
+   - ✅ Removed "auto-arming" functionality  
+   - ✅ Auto-start only activates sequences when tree is already armed
+   - ✅ Added proper 3 beam rule logic that respects tree armed state
+
+3. **Starter Interface** - ✅ **IMPLEMENTED**:
+   - ✅ Added explicit starter control methods: `Arm()` / `DisarmTree()`
+   - ✅ Starter decision is independent of beam states
+   - ✅ Starter can arm tree at any time (even with no cars present)
+
+4. **Control Flow Sequence** - ✅ **FIXED**:
+   - ~~**Previous**: Beam conditions → Auto-arm tree → Auto-start sequence~~
+   - ✅ **Correct**: Starter arms tree → Beam conditions → Auto-start activates sequence
+
+### Methods Successfully Corrected
+
+**Tree Component (`pkg/tree/tree.go`)**:
+- ✅ `Arm()` - Starter-only control to arm tree
+- ✅ `DisarmTree()` - Starter-only control to disarm tree  
+- ✅ `ActivateAutoStart()` - Auto-start system activates when tree already armed
+- ✅ **Removed** `ArmByThreeBeamRule()` - This was fundamentally incorrect
+- ✅ **Removed** `ActivateAutomatically()` - This violated starter control
+
+**Auto-Start Component (`pkg/autostart/autostart.go`)**:
+- ✅ `shouldTriggerAutoStart()` - Now checks tree is armed before allowing activation
+- ✅ `triggerAutoStart()` - Calls `tree.ActivateAutoStart()` instead of trying to arm tree
+- ✅ Proper error handling when tree isn't armed
+
+### Real-World Control Flow Now Correctly Implemented
+
 ```
-Scenario 1 (Manual): Starter arms tree → Starter triggers sequence
-Scenario 2 (Auto): Three beams → Auto-start arms tree → Auto-start triggers sequence
+✅ CORRECT: Starter arms tree → Auto-start monitors → Three beams detected → Auto-start activates sequence
 ```
 
-**What Actually Happens in Real Racing**:
+**This replaces the previous incorrect flow:**
 ```
-Only Scenario: Starter arms tree → Auto-start system activates → Auto-start handles everything
+❌ INCORRECT: Three beams detected → Tree arms automatically → Auto-start activates sequence
 ```
-
-### Specific Code Areas Needing Terminology Updates
-
-1. **Tree Status Fields** (`pkg/tree/tree.go`):
-   - `ArmingSource` field terminology is incorrect
-   - Should track "who decided to arm" not "who is in control"
-
-2. **Auto-Start States** (`pkg/autostart/autostart.go`):
-   - `StateArmed` should be `StateActivated` 
-   - Auto-start doesn't get "armed", it gets "activated" when tree is armed
-
-3. **Console Messages**:
-   - Current: `"Auto-start system (three beams detected)"` 
-   - Should be: `"Armed by three-beam rule"` (tree armed, auto-start activated)
-
-4. **Method Names**:
-   - `ArmAutomatically()` is misleading
-   - Should be `ArmByThreeBeamRule()` or similar
-
-### Auto-Start Timing Model Inconsistencies (Critical)
-
-**Based on CompuLink documentation research, our auto-start model has several critical inaccuracies:**
-
-1. **Missing 0.6-Second Stability Requirement**:
-   - **Real System**: Requires three lights stable for 0.6 seconds before starting timeout
-   - **Our System**: Immediately triggers on three beams detected
-   - **Problem**: Allows manipulation via brief staging light flashes
-
-2. **Incorrect Timeout Values**:
-   - **Real System**: 7s (NHRA Pro), 10s (standard), 15s+ (bracket), track-configurable
-   - **Our System**: Fixed 7s (pro) / 15s (sportsman)
-   - **Problem**: Doesn't match real-world track variations
-
-3. **Missing Dual Timer System**:
-   - **Real System**: 30-second pre-stage timer + staging timeout
-   - **Our System**: Single staging timeout only
-   - **Problem**: Incomplete timeout coverage
-
-4. **Incorrect Green Light Timing**:
-   - **Real System**: 0.6-1.4 seconds after both cars staged for 0.6 seconds
-   - **Our System**: Different random delay algorithm
-   - **Problem**: Timing doesn't match professional standards
-
-5. **Missing Automatic Red Light Penalty**:
-   - **Real System**: Automatic red light for non-staging vehicle, non-negotiable
-   - **Our System**: Generic "fault" state
-   - **Problem**: Doesn't properly penalize timeout violations
-
-6. **Incorrect Timer Start Logic**:
-   - **Real System**: Both pre-staged + one staged + 0.6s stability = timer start
-   - **Our System**: Immediate trigger on three beams
-   - **Problem**: Vulnerable to staging manipulation tactics
-
-### Deep Staging Model Gaps (Critical)
-
-**Based on deep staging research, our system lacks several critical racing class features:**
-
-1. **Missing Racing Class Restrictions**:
-   - **Real System**: Deep staging prohibited in Super Gas/Super Stock/Super Street classes
-   - **Our System**: No class-based deep staging restrictions
-   - **Problem**: Doesn't enforce real NHRA/IHRA class rules
-
-2. **Missing Deep Staging Modes**:
-   - **Real System**: Three distinct modes based on auto-start policy
-     - "Armed": Deep staging allowed but no tree delay
-     - "Honored": Tree waits for deep staging completion (requires driver indication)
-     - "Disabled": Starter has full discretion
-   - **Our System**: No deep staging mode configuration
-   - **Problem**: Missing critical track policy variations
-
-3. **Missing Driver Intent Signaling**:
-   - **Real System**: Drivers indicate deep staging intent (e.g., "DEEP" on windshield)
-   - **Our System**: No mechanism for driver communication
-   - **Problem**: System can't honor deep staging requests appropriately
-
-4. **Missing Deep Staging Timeout Logic**:
-   - **Real System**: Deep stagers must complete staging within timeout when auto-start armed
-   - **Our System**: No special handling for deep staging scenarios
-   - **Problem**: Doesn't model real-world deep staging time pressure
-
-### Auto-Start Control Model Gaps (Critical)
-
-**The research reveals our fundamental misunderstanding of the auto-start control sequence:**
-
-1. **Incorrect Armed/Activated States**:
-   - **Real System**: 
-     - "Armed" = Auto-start system turned on by starter, waiting
-     - "Activated" = Countdown timer started by staging conditions
-   - **Our System**: Conflates these states and uses incorrect terminology
-   - **Problem**: Fundamental misunderstanding of system operation
-
-2. **Missing Starter Control Phase**:
-   - **Real System**: "If track clear & switch is armed as both approach pre-stage, takes both to start, and can sit there both pre-staged all day (at least until the starter directs you both in)"
-   - **Our System**: No explicit starter direction phase
-   - **Problem**: Missing the "starter directs you both in" control point
-
-3. **Incorrect Trigger Sequence**:
-   - **Real System**: Armed → Staging conditions met → Activated → Timer/sequence
-   - **Our System**: Staging conditions → Armed (incorrect term) → Timer/sequence
-   - **Problem**: Missing the manual arming step by starter
-
-4. **Missing Auto-Start Switch Control**:
-   - **Real System**: Starter has physical switch to arm/disarm auto-start
-   - **Our System**: No explicit starter switch control
-   - **Problem**: Starter can't control when auto-start is available
-
-### Racing Class Policy Gaps (Medium Priority)
-
-**Our system lacks class-specific behavioral differences:**
-
-1. **Missing Class-Based Rules**:
-   - **Real System**: Different classes have different staging and timeout rules
-   - **Our System**: Generic configuration regardless of racing class
-   - **Problem**: Doesn't model real-world class variations
-
-2. **Missing Track Policy Configuration**:
-   - **Real System**: Tracks can configure deep staging policies per class
-   - **Our System**: No track-level policy management
-   - **Problem**: Can't simulate different track operational styles
-
-### System Manipulation Vulnerabilities (High Priority)
-
-**Research confirms our system is vulnerable to known manipulation tactics:**
-
-1. **Stage Light Manipulation**:
-   - **Real System**: 0.6-second stability requirement prevents "inching" tactics
-   - **Our System**: Immediate response allows manipulation
-   - **Problem**: Vulnerable to exact tactics the real system prevents
-
-2. **Missing Anti-Gaming Features**:
-   - **Real System**: Multiple safeguards against staging manipulation
-   - **Our System**: Basic beam detection only
-   - **Problem**: Lacks professional-grade anti-cheating measures

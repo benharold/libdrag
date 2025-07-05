@@ -94,18 +94,6 @@ func (bs *BeamSystem) Initialize(ctx context.Context, cfg config.Config) error {
 	return nil
 }
 
-func (bs *BeamSystem) AddBeam(beam *Beam) {
-	bs.mu.Lock()
-	defer bs.mu.Unlock()
-	bs.beams[beam.ID] = beam
-}
-
-func (bs *BeamSystem) GetBeam(id string) *Beam {
-	bs.mu.RLock()
-	defer bs.mu.RUnlock()
-	return bs.beams[id]
-}
-
 // Start begins beam system operation
 func (bs *BeamSystem) Start(ctx context.Context) error {
 	bs.mu.Lock()

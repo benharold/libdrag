@@ -16,11 +16,12 @@ import (
 type AutoStartState string
 
 const (
-	StateIdle      AutoStartState = "idle"      // Not armed, waiting for vehicles
-	StateActivated AutoStartState = "activated" // Three lights detected, countdown started
-	StateStaging   AutoStartState = "staging"   // Both vehicles staged, final checks
-	StateTriggered AutoStartState = "triggered" // Tree sequence initiated
-	StateFault     AutoStartState = "fault"     // Safety violation or timeout
+	StateIdle       AutoStartState = "idle"       // Not monitoring, waiting for tree to be armed
+	StateMonitoring AutoStartState = "monitoring" // Tree armed, monitoring for three beam rule
+	StateActivated  AutoStartState = "activated"  // Three beams detected, countdown started
+	StateStaging    AutoStartState = "staging"    // Both vehicles staged, final checks
+	StateTriggered  AutoStartState = "triggered"  // Tree sequence initiated
+	StateFault      AutoStartState = "fault"      // Safety violation or timeout
 )
 
 // StagingStatus represents vehicle staging state
@@ -272,7 +273,13 @@ func (as *AutoStartSystem) UpdateVehicleStaging(lane int, preStaged, staged bool
 }
 
 // shouldTriggerAutoStart implements the "three-light rule"
+// Only triggers when tree is already armed
 func (as *AutoStartSystem) shouldTriggerAutoStart(oldPreStaged, oldStaged, newPreStaged, newStaged bool) bool {
+	// Auto-start can only activate if tree is already armed
+	if as.tree == nil || !as.tree.IsArmed() {
+		return false
+	}
+
 	if as.status.State != StateIdle {
 		return false
 	}
@@ -290,19 +297,23 @@ func (as *AutoStartSystem) shouldTriggerAutoStart(oldPreStaged, oldStaged, newPr
 		}
 	}
 
-	// Three-light rule: 2 pre-stage + 1 stage = auto-start trigger
+	// Three-light rule: 2 pre-stage + 1 stage = auto-start activation (not arming)
 	return preStageCount == 2 && stageCount >= 1
 }
 
-// triggerAutoStart initiates the auto-start countdown sequence
+// triggerAutoStart activates the auto-start countdown sequence (tree must already be armed)
 func (as *AutoStartSystem) triggerAutoStart() {
 	oldState := as.status.State
 	as.status.State = StateActivated
 	as.status.CountdownStarted = time.Now()
 
-	// Automatically arm the tree component when three beams are detected
+	// Activate the auto-start system on the tree (tree must already be armed)
 	if as.tree != nil {
-		as.tree.ActivateAutomatically()
+		err := as.tree.ActivateAutoStart()
+		if err != nil {
+			as.triggerFault(fmt.Sprintf("Cannot activate auto-start: %v", err))
+			return
+		}
 	}
 
 	if as.onStateChange != nil {
