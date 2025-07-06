@@ -169,7 +169,7 @@ func (api *LibDragAPI) GetRaceStatusJSONByID(raceID string) string {
 	return string(jsonData)
 }
 
-// GetTreeStatusJSON returns christmas tree status as JSON (legacy method)
+// GetTreeStatusJSON returns Christmas tree status as JSON (legacy method)
 func (api *LibDragAPI) GetTreeStatusJSON() string {
 	api.mu.RLock()
 	defer api.mu.RUnlock()
@@ -183,7 +183,7 @@ func (api *LibDragAPI) GetTreeStatusJSON() string {
 	return "{\"state\":\"idle\"}"
 }
 
-// GetTreeStatusJSONByID returns christmas tree status as JSON for a specific race
+// GetTreeStatusJSONByID returns Christmas tree status as JSON for a specific race
 func (api *LibDragAPI) GetTreeStatusJSONByID(raceID string) string {
 	api.mu.RLock()
 	defer api.mu.RUnlock()

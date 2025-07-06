@@ -36,9 +36,8 @@ const (
 
 // Status represents Christmas tree state
 type Status struct {
-	Armed          bool                             `json:"armed"`           // starter has enabled auto-start system to take control
-	Activated      bool                             `json:"activated"`       // auto-start system detected staging conditions and started sequence
-	StagingProcess bool                             `json:"staging_process"` // staging sequence is running
+	Armed          bool                             `json:"armed"`     // starter has enabled auto-start system to take control
+	Activated      bool                             `json:"activated"` // auto-start system detected staging conditions and started sequence
 	SequenceType   config.TreeSequenceType          `json:"sequence_type"`
 	CurrentStep    int                              `json:"current_step"`
 	LightStates    map[int]map[LightType]LightState `json:"light_states"` // lane -> light -> state
@@ -133,7 +132,6 @@ func (ct *ChristmasTree) DisarmTree() {
 
 	ct.status.Armed = false
 	ct.status.Activated = false
-	ct.status.StagingProcess = false
 	ct.status.ArmedTime = time.Time{}
 	ct.status.ActivationTime = time.Time{}
 	ct.status.StabilityTimer = time.Time{}
@@ -486,11 +484,6 @@ func (ct *ChristmasTree) StartStagingProcess(sequenceType config.TreeSequenceTyp
 		return fmt.Errorf("auto-start system is not activated")
 	}
 
-	if ct.status.StagingProcess {
-		return fmt.Errorf("staging process already running")
-	}
-
-	ct.status.StagingProcess = true
 	ct.status.SequenceType = sequenceType
 	ct.status.LastSequence = time.Now()
 	ct.compStatus.Status = "staging_process"
@@ -516,7 +509,6 @@ func (ct *ChristmasTree) StartStagingProcess(sequenceType config.TreeSequenceTyp
 func (ct *ChristmasTree) runStagingSequence(sequenceType config.TreeSequenceType) time.Time {
 	defer func() {
 		ct.mu.Lock()
-		ct.status.StagingProcess = false
 		ct.mu.Unlock()
 
 		// Publish sequence end event
