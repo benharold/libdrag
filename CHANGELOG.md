@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform drag racing simulation
 - NHRA/IHRA timing system support
 - Christmas tree light sequence simulation
+- Basic vehicle positioning and staging simulation  
 - JSON API for easy integration
 - Race orchestration system
 - High-precision timing components

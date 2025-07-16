@@ -26,7 +26,8 @@ This library currently implements core drag racing simulation with:
 
 - 🏁 **Accurate Race Simulation**: Simulates NHRA/IHRA drag racing with realistic timing
 - 🚦 **Christmas Tree**: Full Christmas tree light sequence simulation
-- ⏱️ **Precision Timing**: High-precision timing system for accurate race results
+- ⏱️ **Precision Timing**: High-precision timing system for accurate race results  
+- 🚗 **Vehicle Simulation**: Basic vehicle positioning and staging simulation
 - 🎮 **Cross-Platform**: Works on Windows, macOS, Linux, and mobile platforms
 - 📊 **JSON API**: Clean JSON interface for easy integration
 - 🔧 **Configurable**: Flexible configuration system for different racing formats
@@ -186,12 +187,12 @@ start coverage.html
 
 The library maintains high test coverage for core drag racing functionality:
 
-- **🚦 Christmas Tree (`pkg/tree`)**: **80%+ coverage**
+- **🚦 Christmas Tree (`pkg/tree`)**: **68%+ coverage**
   - Pre-stage/stage light sequences
   - Pro vs Sportsman tree timing (0.4s vs 0.5s)
   - Tree arming and error handling
 
-- **⏱️ Timing System (`pkg/timing`)**: **55%+ coverage**
+- **⏱️ Timing System (`pkg/timing`)**: **75%+ coverage**
   - Reaction time calculations
   - 60-foot, 1/8 mile, 1/4 mile splits
   - Red light detection (jumping the start)
@@ -291,6 +292,7 @@ The library is structured with clear separation of concerns:
 - **pkg/component**: Component system architecture
 - **pkg/config**: Configuration management
 - **pkg/events**: Event bus system for component communication
+- **internal/vehicle**: Basic vehicle simulation (internal implementation)
 
 ## Racing Formats Supported
 
