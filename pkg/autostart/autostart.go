@@ -161,7 +161,7 @@ func (as *AutoStartSystem) loadConfigFromSystem(cfg config.Config) AutoStartConf
 
 	// Adjust for sportsman classes if configured
 	if treeConfig.Type == config.TreeSequenceSportsman {
-		autoConfig.StagingTimeout = 15 * time.Second
+		autoConfig.StagingTimeout = 10 * time.Second
 		autoConfig.MinStagingDuration = 600 * time.Millisecond
 		autoConfig.RandomDelayMin = 600 * time.Millisecond
 		autoConfig.RandomDelayMax = 1400 * time.Millisecond // Sportsman range
@@ -264,18 +264,32 @@ func (as *AutoStartSystem) UpdateVehicleStaging(lane int, preStaged, staged bool
 		return nil
 	}
 
+	// Check courtesy staging violation (staged without both pre-staged)
+	preCount := as.countPreStaged()
+	if staged && preCount < 2 {
+		// Courtesy violation: Staged without both pre-staged
+		// Could fault or just log/warn per regs (encouraged, not enforced)
+		fmt.Println("Courtesy staging violation: Staged before both pre-staged")
+		// Optional: if config.CourtesyEnforced { as.triggerFault("Courtesy staging violation") }
+	}
+
 	// Check if this triggers the three-light rule
-	if as.shouldTriggerAutoStart(oldPreStaged, oldStaged, preStaged, staged) {
+	if as.autoStartShouldActivateCountdownSequence(oldPreStaged, oldStaged, preStaged, staged) {
 		as.triggerAutoStart()
+	}
+
+	// If activated and this update caused countStaged to become 1, start timeout
+	if as.status.State == StateActivated && as.countStaged() == 1 && !oldStaged && staged {
+		as.startSecondStageTimeout()
 	}
 
 	return nil
 }
 
-// shouldTriggerAutoStart implements the "three-light rule"
+// autoStartShouldActivateCountdownSequence implements the "three-light rule"
 // Only triggers when tree is already armed
-func (as *AutoStartSystem) shouldTriggerAutoStart(oldPreStaged, oldStaged, newPreStaged, newStaged bool) bool {
-	// Auto-start can only activate if tree is already armed
+func (as *AutoStartSystem) autoStartShouldActivateCountdownSequence(oldPreStaged, oldStaged, newPreStaged, newStaged bool) bool {
+	// Auto-start can only activate the countdown sequence if tree is armed
 	if as.tree == nil || !as.tree.IsArmed() {
 		return false
 	}
@@ -284,21 +298,8 @@ func (as *AutoStartSystem) shouldTriggerAutoStart(oldPreStaged, oldStaged, newPr
 		return false
 	}
 
-	// Count current lights: both pre-stage + at least one stage
-	preStageCount := 0
-	stageCount := 0
-
-	for _, staging := range as.status.VehicleStaging {
-		if staging.PreStaged {
-			preStageCount++
-		}
-		if staging.Staged {
-			stageCount++
-		}
-	}
-
-	// Three-light rule: 2 pre-stage + 1 stage = auto-start activation (not arming)
-	return preStageCount == 2 && stageCount >= 1
+	// Activate on >=3 total bulbs lit ⚡
+	return as.totalBulbsOn() >= 3
 }
 
 // triggerAutoStart activates the auto-start countdown sequence (tree must already be armed)
@@ -320,12 +321,11 @@ func (as *AutoStartSystem) triggerAutoStart() {
 		go as.onStateChange(oldState, StateActivated)
 	}
 
-	// Arm countdown timer
-	as.countdownTimer = time.AfterFunc(as.config.StagingTimeout, func() {
-		as.mu.Lock()
-		defer as.mu.Unlock()
-		as.triggerFault("Staging timeout exceeded")
-	})
+	// Monitor for both vehicles fully staged (and start timeout if already one staged)
+	go as.monitorForFullStaging()
+	if as.countStaged() == 1 { // If activation happened on first stage
+		as.startSecondStageTimeout()
+	}
 
 	// Monitor for both vehicles fully staged
 	go as.monitorForFullStaging()
@@ -357,6 +357,12 @@ func (as *AutoStartSystem) monitorForFullStaging() {
 			if stagedCount == 2 && as.status.BothVehiclesStaged.IsZero() {
 				as.status.BothVehiclesStaged = time.Now()
 				as.status.State = StateStaging
+
+				// Cancel staging timeout since both are now staged
+				if as.stagingTimer != nil {
+					as.stagingTimer.Stop()
+					as.stagingTimer = nil
+				}
 
 				// Arm minimum staging timer
 				as.stagingTimer = time.AfterFunc(as.config.MinStagingDuration, func() {
@@ -428,11 +434,7 @@ func (as *AutoStartSystem) triggerFault(reason string) {
 	as.status.State = StateFault
 	as.status.LastFaultReason = reason
 
-	// Cancel all timers
-	if as.countdownTimer != nil {
-		as.countdownTimer.Stop()
-		as.countdownTimer = nil
-	}
+	// Cancel timer
 	if as.stagingTimer != nil {
 		as.stagingTimer.Stop()
 		as.stagingTimer = nil
@@ -464,11 +466,7 @@ func (as *AutoStartSystem) resetToIdle(reason string) {
 		staging.Rollout = 0
 	}
 
-	// Cancel timers
-	if as.countdownTimer != nil {
-		as.countdownTimer.Stop()
-		as.countdownTimer = nil
-	}
+	// Cancel timer
 	if as.stagingTimer != nil {
 		as.stagingTimer.Stop()
 		as.stagingTimer = nil
@@ -560,4 +558,64 @@ func (as *AutoStartSystem) SetTreeComponent(treeComponent *tree.ChristmasTree) {
 	as.mu.Lock()
 	defer as.mu.Unlock()
 	as.tree = treeComponent
+}
+
+// countPreStaged returns the number of pre-staged vehicles.
+func (as *AutoStartSystem) countPreStaged() int {
+	count := 0
+	for _, staging := range as.status.VehicleStaging {
+		if staging.PreStaged {
+			count++
+		}
+	}
+	return count
+}
+
+// countStaged returns the number of staged vehicles.
+func (as *AutoStartSystem) countStaged() int {
+	count := 0
+	for _, staging := range as.status.VehicleStaging {
+		if staging.Staged {
+			count++
+		}
+	}
+	return count
+}
+
+// totalBulbsOn returns the total number of lit top bulbs (pre + stage across lanes).
+func (as *AutoStartSystem) totalBulbsOn() int {
+	count := 0
+	for _, staging := range as.status.VehicleStaging {
+		if staging.PreStaged {
+			count++
+		}
+		if staging.Staged {
+			count++
+		}
+	}
+	return count
+}
+
+// startSecondStageTimeout starts the timeout for the second vehicle to stage.
+func (as *AutoStartSystem) startSecondStageTimeout() {
+	as.stagingTimer = time.AfterFunc(as.config.StagingTimeout, func() {
+		as.mu.Lock()
+		defer as.mu.Unlock()
+		if as.status.State != StateActivated { // Only fault if still waiting
+			return
+		}
+		// Find unstaged lane
+		var timedOutLane int
+		for lane, staging := range as.status.VehicleStaging {
+			if !staging.Staged {
+				timedOutLane = lane
+				break
+			}
+		}
+		as.triggerFault(fmt.Sprintf("Staging timeout for lane %d", timedOutLane))
+		// Publish foul event for timing system (red light)
+		// if as.eventBus != nil { // Assume event bus added
+		//     as.eventBus.Publish(events.NewEvent(events.EventStagingTimeoutFoul).WithLane(timedOutLane).Build())
+		// }
+	})
 }
