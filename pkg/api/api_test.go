@@ -35,10 +35,10 @@ func TestBasicRaceFlow(t *testing.T) {
 		t.Fatalf("Initialize failed: %v", err)
 	}
 
-	// Start race
-	err = api.StartRace()
+	// Start race with ID
+	raceID, err := api.StartRaceWithID()
 	if err != nil {
-		t.Fatalf("StartRace failed: %v", err)
+		t.Fatalf("StartRaceWithID failed: %v", err)
 	}
 
 	// Enable test mode for faster execution
@@ -53,7 +53,7 @@ func TestBasicRaceFlow(t *testing.T) {
 		case <-timeout:
 			t.Fatal("Race did not complete within timeout")
 		case <-ticker:
-			if api.IsRaceComplete() {
+			if api.IsRaceCompleteByID(raceID) {
 				goto raceComplete
 			}
 		}
@@ -61,19 +61,19 @@ func TestBasicRaceFlow(t *testing.T) {
 
 raceComplete:
 	// Verify we can get results
-	results := api.GetResultsJSON()
+	results := api.GetResultsJSONByID(raceID)
 	if results == "" {
-		t.Error("GetResultsJSON returned empty string")
+		t.Error("GetResultsJSONByID returned empty string")
 	}
 
-	treeStatus := api.GetTreeStatusJSON()
+	treeStatus := api.GetTreeStatusJSONByID(raceID)
 	if treeStatus == "" {
-		t.Error("GetTreeStatusJSON returned empty string")
+		t.Error("GetTreeStatusJSONByID returned empty string")
 	}
 
-	raceStatus := api.GetRaceStatusJSON()
+	raceStatus := api.GetRaceStatusJSONByID(raceID)
 	if raceStatus == "" {
-		t.Error("GetRaceStatusJSON returned empty string")
+		t.Error("GetRaceStatusJSONByID returned empty string")
 	}
 
 	// Clean shutdown

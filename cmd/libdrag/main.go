@@ -25,17 +25,19 @@ func main() {
 
 	// Start race
 	fmt.Println("\n🚗 Starting race with libdrag...")
-	if err := libdragAPI.StartRace(); err != nil {
+	raceID, err := libdragAPI.StartRaceWithID()
+	if err != nil {
 		fmt.Printf("❌ Failed to start race: %v\n", err)
 		return
 	}
+	fmt.Printf("✅ Race started with ID: %s\n", raceID)
 
 	// Monitor race progress
 	fmt.Println("🔄 Monitoring race progress...")
 
 	// Wait for race to complete
 	for i := 0; i < 100; i++ { // Max 10 seconds
-		if libdragAPI.IsRaceComplete() {
+		if libdragAPI.IsRaceCompleteByID(raceID) {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -45,10 +47,10 @@ func main() {
 	fmt.Println("\n🏆 LIBDRAG FINAL RESULTS")
 	fmt.Println("========================")
 
-	resultsJSON := libdragAPI.GetResultsJSON()
+	resultsJSON := libdragAPI.GetResultsJSONByID(raceID)
 	fmt.Printf("Results JSON:\n%s\n", resultsJSON)
 
-	treeStatusJSON := libdragAPI.GetTreeStatusJSON()
+	treeStatusJSON := libdragAPI.GetTreeStatusJSONByID(raceID)
 	fmt.Printf("\nChristmas Tree Status JSON:\n%s\n", treeStatusJSON)
 
 	// Clean shutdown

@@ -100,15 +100,6 @@ func main() {
 - `Stop() error` - Shutdown the system and cleanup all races
 
 ### Race Management
-
-#### Legacy Single Race API
-- `StartRace() error` - Start a new drag race (legacy method)
-- `IsRaceComplete() bool` - Check if the current race is finished
-- `GetResultsJSON() string` - Get race results as JSON
-- `GetTreeStatusJSON() string` - Get Christmas tree status as JSON
-- `GetRaceStatusJSON() string` - Get current race status as JSON
-
-#### Multi-Race API with IDs
 - `StartRaceWithID() (string, error)` - Start a new race and return unique race ID
 - `IsRaceCompleteByID(raceID string) bool` - Check if a specific race is finished
 - `GetResultsJSONByID(raceID string) string` - Get race results as JSON for specific race
