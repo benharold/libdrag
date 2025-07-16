@@ -9,6 +9,7 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events" // Added for event bus
 	"github.com/benharold/libdrag/pkg/tree"
 )
 
@@ -57,6 +58,54 @@ type AutoStartConfig struct {
 	RacingClass string `json:"racing_class"` // e.g., "Top Fuel", "Pro Stock", "Bracket"
 }
 
+// classPresets defines preset configurations for different racing classes
+var classPresets = map[string]AutoStartConfig{
+	"Sportsman": {
+		StagingTimeout:       10 * time.Second, // As specified
+		MinStagingDuration:   600 * time.Millisecond,
+		RandomDelayMin:       600 * time.Millisecond,
+		RandomDelayMax:       1400 * time.Millisecond,
+		RandomVariation:      200 * time.Millisecond,
+		GuardBeamDistance:    13.375,
+		MaxRolloutDistance:   6.0,
+		PreStageDistance:     -7.0,
+		EnabledForElims:      true,
+		EnabledForTimeTrials: false,
+		TreeSequenceType:     config.TreeSequenceSportsman,
+		RacingClass:          "Sportsman",
+	},
+	"ProFourTenths": {
+		StagingTimeout:       7 * time.Second,
+		MinStagingDuration:   500 * time.Millisecond,
+		RandomDelayMin:       600 * time.Millisecond,
+		RandomDelayMax:       1100 * time.Millisecond,
+		RandomVariation:      200 * time.Millisecond,
+		GuardBeamDistance:    13.375,
+		MaxRolloutDistance:   6.0,
+		PreStageDistance:     -7.0,
+		EnabledForElims:      true,
+		EnabledForTimeTrials: false,
+		TreeSequenceType:     config.TreeSequencePro,
+		RacingClass:          "Professional",
+		// Note: 0.400s ambers-to-green delay set in Tree.GreenDelay during config creation
+	},
+	"ProFiveTenths": {
+		StagingTimeout:       7 * time.Second,
+		MinStagingDuration:   500 * time.Millisecond,
+		RandomDelayMin:       600 * time.Millisecond,
+		RandomDelayMax:       1100 * time.Millisecond,
+		RandomVariation:      200 * time.Millisecond,
+		GuardBeamDistance:    13.375,
+		MaxRolloutDistance:   6.0,
+		PreStageDistance:     -7.0,
+		EnabledForElims:      true,
+		EnabledForTimeTrials: false,
+		TreeSequenceType:     config.TreeSequencePro,
+		RacingClass:          "Professional",
+		// Note: 0.500s ambers-to-green delay set in Tree.GreenDelay during config creation
+	},
+}
+
 // AutoStartStatus represents the current system status
 type AutoStartStatus struct {
 	State              AutoStartState         `json:"state"`
@@ -80,6 +129,7 @@ type AutoStartSystem struct {
 	compStatus component.ComponentStatus
 	running    bool
 	testMode   bool
+	eventBus   *events.EventBus // Added for publishing events
 
 	// Component integration
 	tree *tree.ChristmasTree // Reference to tree component for automatic arming
@@ -90,16 +140,16 @@ type AutoStartSystem struct {
 	onStateChange func(oldState, newState AutoStartState)
 
 	// Internal timing
-	countdownTimer *time.Timer
-	stagingTimer   *time.Timer
-	randomSeed     *rand.Rand
+	stagingTimer *time.Timer
+	randomSeed   *rand.Rand
 }
 
 // NewAutoStartSystem creates a new auto-start system
-func NewAutoStartSystem() *AutoStartSystem {
+func NewAutoStartSystem(eventBus *events.EventBus) *AutoStartSystem { // Added eventBus to constructor
 	return &AutoStartSystem{
 		id:         "autostart_system",
 		randomSeed: rand.New(rand.NewSource(time.Now().UnixNano())),
+		eventBus:   eventBus, // Set event bus
 		status: AutoStartStatus{
 			State:          StateIdle,
 			IsEnabled:      true,
@@ -114,6 +164,13 @@ func NewAutoStartSystem() *AutoStartSystem {
 	}
 }
 
+// SetEventBus sets or updates the event bus
+func (as *AutoStartSystem) SetEventBus(eventBus *events.EventBus) {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.eventBus = eventBus
+}
+
 // GetID returns the component ID
 func (as *AutoStartSystem) GetID() string {
 	return as.id
@@ -124,8 +181,20 @@ func (as *AutoStartSystem) Initialize(ctx context.Context, cfg config.Config) er
 	as.mu.Lock()
 	defer as.mu.Unlock()
 
-	// Load configuration and set defaults based on CompuLink specifications
-	as.config = as.loadConfigFromSystem(cfg)
+	// Load preset based on cfg.RacingClass (default "Sportsman" if empty/invalid)
+	class := cfg.RacingClass()
+	if class == "" {
+		class = "Sportsman"
+	}
+	preset, ok := classPresets[class]
+	if !ok {
+		preset = classPresets["Sportsman"] // Fallback
+	}
+	as.config = preset
+
+	// Override TreeSequenceType from system config if specified
+	treeConfig := cfg.Tree()
+	as.config.TreeSequenceType = treeConfig.Type
 
 	// Initialize vehicle staging status for configured lanes
 	trackConfig := cfg.Track()
@@ -137,38 +206,6 @@ func (as *AutoStartSystem) Initialize(ctx context.Context, cfg config.Config) er
 
 	as.compStatus.Status = "initialized"
 	return nil
-}
-
-// loadConfigFromSystem extracts auto-start configuration from system config
-func (as *AutoStartSystem) loadConfigFromSystem(cfg config.Config) AutoStartConfig {
-	treeConfig := cfg.Tree()
-
-	// Default to professional settings (Top Fuel/Funny Car/Pro Stock)
-	autoConfig := AutoStartConfig{
-		StagingTimeout:       7 * time.Second,
-		MinStagingDuration:   500 * time.Millisecond,
-		RandomDelayMin:       600 * time.Millisecond,
-		RandomDelayMax:       1100 * time.Millisecond, // Pro tree range
-		RandomVariation:      200 * time.Millisecond,
-		GuardBeamDistance:    13.375, // 13 3/8 inches
-		MaxRolloutDistance:   6.0,    // Reasonable rollout limit
-		PreStageDistance:     -7.0,   // 7 inches behind start line
-		EnabledForElims:      true,
-		EnabledForTimeTrials: false,
-		TreeSequenceType:     treeConfig.Type,
-		RacingClass:          "Professional",
-	}
-
-	// Adjust for sportsman classes if configured
-	if treeConfig.Type == config.TreeSequenceSportsman {
-		autoConfig.StagingTimeout = 10 * time.Second
-		autoConfig.MinStagingDuration = 600 * time.Millisecond
-		autoConfig.RandomDelayMin = 600 * time.Millisecond
-		autoConfig.RandomDelayMax = 1400 * time.Millisecond // Sportsman range
-		autoConfig.RacingClass = "Sportsman"
-	}
-
-	return autoConfig
 }
 
 // Start starts the auto-start system
@@ -197,10 +234,6 @@ func (as *AutoStartSystem) Stop(ctx context.Context) error {
 	as.status.State = StateIdle
 
 	// Cancel any active timers
-	if as.countdownTimer != nil {
-		as.countdownTimer.Stop()
-		as.countdownTimer = nil
-	}
 	if as.stagingTimer != nil {
 		as.stagingTimer.Stop()
 		as.stagingTimer = nil
@@ -274,7 +307,7 @@ func (as *AutoStartSystem) UpdateVehicleStaging(lane int, preStaged, staged bool
 	}
 
 	// Check if this triggers the three-light rule
-	if as.autoStartShouldActivateCountdownSequence(oldPreStaged, oldStaged, preStaged, staged) {
+	if as.shouldActivateAutoStartMonitoring(oldPreStaged, oldStaged, preStaged, staged) {
 		as.triggerAutoStart()
 	}
 
@@ -286,10 +319,10 @@ func (as *AutoStartSystem) UpdateVehicleStaging(lane int, preStaged, staged bool
 	return nil
 }
 
-// autoStartShouldActivateCountdownSequence implements the "three-light rule"
+// shouldActivateAutoStartMonitoring implements the "three-light rule"
 // Only triggers when tree is already armed
-func (as *AutoStartSystem) autoStartShouldActivateCountdownSequence(oldPreStaged, oldStaged, newPreStaged, newStaged bool) bool {
-	// Auto-start can only activate the countdown sequence if tree is armed
+func (as *AutoStartSystem) shouldActivateAutoStartMonitoring(oldPreStaged, oldStaged, newPreStaged, newStaged bool) bool {
+	// Auto-start can only activate if tree is already armed
 	if as.tree == nil || !as.tree.IsArmed() {
 		return false
 	}
@@ -298,8 +331,7 @@ func (as *AutoStartSystem) autoStartShouldActivateCountdownSequence(oldPreStaged
 		return false
 	}
 
-	// Activate on >=3 total bulbs lit ⚡
-	return as.totalBulbsOn() >= 3
+	return as.countPreStaged() == 2 && as.countStaged() >= 1
 }
 
 // triggerAutoStart activates the auto-start countdown sequence (tree must already be armed)
@@ -321,14 +353,16 @@ func (as *AutoStartSystem) triggerAutoStart() {
 		go as.onStateChange(oldState, StateActivated)
 	}
 
+	// Publish activation event
+	if as.eventBus != nil {
+		as.eventBus.Publish(events.NewEvent(events.EventAutoStartActivated).Build())
+	}
+
 	// Monitor for both vehicles fully staged (and start timeout if already one staged)
 	go as.monitorForFullStaging()
 	if as.countStaged() == 1 { // If activation happened on first stage
 		as.startSecondStageTimeout()
 	}
-
-	// Monitor for both vehicles fully staged
-	go as.monitorForFullStaging()
 }
 
 // monitorForFullStaging watches for both vehicles to be fully staged
@@ -406,6 +440,11 @@ func (as *AutoStartSystem) triggerTreeSequence() {
 				}
 			}
 
+			// Publish tree triggered event
+			if as.eventBus != nil {
+				as.eventBus.Publish(events.NewEvent(events.EventTreeSequenceTriggered).Build())
+			}
+
 			// Reset to idle after successful trigger
 			time.AfterFunc(100*time.Millisecond, func() { // Shorter delay for tests
 				as.mu.Lock()
@@ -447,6 +486,11 @@ func (as *AutoStartSystem) triggerFault(reason string) {
 	if as.onStateChange != nil {
 		go as.onStateChange(oldState, StateFault)
 	}
+
+	// Publish fault event
+	if as.eventBus != nil {
+		as.eventBus.Publish(events.NewEvent(events.EventAutoStartFault).WithData("reason", reason).Build())
+	}
 }
 
 // resetToIdle resets the system to idle state
@@ -474,6 +518,11 @@ func (as *AutoStartSystem) resetToIdle(reason string) {
 
 	if as.onStateChange != nil {
 		go as.onStateChange(oldState, StateIdle)
+	}
+
+	// Publish reset event
+	if as.eventBus != nil {
+		as.eventBus.Publish(events.NewEvent(events.EventAutoStartReset).WithData("reason", reason).Build())
 	}
 }
 
@@ -582,20 +631,6 @@ func (as *AutoStartSystem) countStaged() int {
 	return count
 }
 
-// totalBulbsOn returns the total number of lit top bulbs (pre + stage across lanes).
-func (as *AutoStartSystem) totalBulbsOn() int {
-	count := 0
-	for _, staging := range as.status.VehicleStaging {
-		if staging.PreStaged {
-			count++
-		}
-		if staging.Staged {
-			count++
-		}
-	}
-	return count
-}
-
 // startSecondStageTimeout starts the timeout for the second vehicle to stage.
 func (as *AutoStartSystem) startSecondStageTimeout() {
 	as.stagingTimer = time.AfterFunc(as.config.StagingTimeout, func() {
@@ -613,9 +648,9 @@ func (as *AutoStartSystem) startSecondStageTimeout() {
 			}
 		}
 		as.triggerFault(fmt.Sprintf("Staging timeout for lane %d", timedOutLane))
-		// Publish foul event for timing system (red light)
-		// if as.eventBus != nil { // Assume event bus added
-		//     as.eventBus.Publish(events.NewEvent(events.EventStagingTimeoutFoul).WithLane(timedOutLane).Build())
-		// }
+		// Publish staging timeout foul event
+		if as.eventBus != nil {
+			as.eventBus.Publish(events.NewEvent(events.EventStagingTimeoutFoul).WithLane(timedOutLane).Build())
+		}
 	})
 }

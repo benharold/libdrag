@@ -8,6 +8,7 @@ type Config interface {
 	Timing() TimingConfig
 	Tree() TreeSequenceConfig
 	Safety() SafetyConfig
+	RacingClass() string // Added for class selection
 }
 
 // TrackConfig defines track specifications
@@ -63,6 +64,7 @@ type DefaultConfig struct {
 	TimingConfig TimingConfig       `json:"timing"`
 	TreeConfig   TreeSequenceConfig `json:"tree"`
 	SafetyConfig SafetyConfig       `json:"safety"`
+	racingClass  string             `json:"racing_class"` // Private field
 }
 
 func (c *DefaultConfig) Track() TrackConfig {
@@ -79,6 +81,10 @@ func (c *DefaultConfig) Tree() TreeSequenceConfig {
 
 func (c *DefaultConfig) Safety() SafetyConfig {
 	return c.SafetyConfig
+}
+
+func (c *DefaultConfig) RacingClass() string {
+	return c.racingClass
 }
 
 // NewDefaultConfig creates a default configuration for NHRA-style drag racing
@@ -150,5 +156,11 @@ func NewDefaultConfig() *DefaultConfig {
 			MaxReactionTime:      2 * time.Second,
 			MinStagingTime:       500 * time.Millisecond,
 		},
+		racingClass: "Sportsman", // Default class
 	}
+}
+
+// SetRacingClass sets the racing class
+func (c *DefaultConfig) SetRacingClass(class string) {
+	c.racingClass = class
 }

@@ -81,13 +81,33 @@ Component status → Orchestrator → API status reporting
 - **Integration Tests**: Component interaction testing (`pkg/orchestrator`, `pkg/api`)
 - **Auto-Start Integration**: Real-world auto-start system behavior (`pkg/autostart/integration.go`)
 
+## Standards Compliance
+
+LibDrag implements official NHRA and IHRA sanctioning body requirements:
+
+- **NHRA Rule Book Compliance**: Sections 4.2-4.4 (Competition Procedures), Section 6.1 (Safety), Sections 9.1-9.6 (Sportsman), Sections 11.1-11.5 (Professional)
+- **IHRA Rule Book Compliance**: Sections 3.2-3.3 (Competition Rules), Section 7 (Professional), Section 8 (Sportsman)
+- **CompuLink Auto-Start Protocol**: Full three-light rule implementation with class-specific timing
+- **See**: `docs/nhra-ihra-compliance.md` for detailed rule compliance matrix and implementation status
+
+### Critical Compliance Features
+- ✅ Three-light rule implementation (NHRA 4.4.1, IHRA 3.2.2)
+- ✅ Class-specific staging timeouts (7s Professional, 10s Sportsman, 15s Bracket)
+- ✅ Random delay specifications (0.6-1.1s Pro, 0.6-1.4s Sportsman)
+- ✅ Pro vs Sportsman tree sequences (0.4s/0.5s green delays)
+- ❌ **Deep staging restrictions enforcement** (Critical gap for Super Gas/Stock/Street)
+- ❌ **Centerline violation detection** (Required for professional events)
+
 ## Project Structure
 
 - **cmd/libdrag/**: Command-line demo application
 - **pkg/**: All public library packages following Go conventions
 - **internal/vehicle/**: Internal vehicle simulation (not public API)
 - **examples/**: Usage examples and race monitor
-- **docs/**: API documentation and drag racing terminology references
+- **docs/**: API documentation, rule compliance, and drag racing terminology references
+  - **docs/nhra-ihra-compliance.md**: Official rule book compliance documentation
+  - **docs/api-documentation.md**: Complete API reference
+  - **docs/research/**: Technical research and implementation details
 
 ## Key Terminology
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/tree"
 )
 
@@ -13,7 +14,8 @@ import (
 // between the auto-start system and tree component for automatic arming
 func TestThreeBeamAutomaticArming(t *testing.T) {
 	// Create components
-	autoStart := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	autoStart := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 
 	// Initialize both components

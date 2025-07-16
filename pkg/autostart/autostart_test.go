@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/tree"
 )
 
 func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
@@ -67,7 +69,8 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 }
 
 func TestAutoStartSystem_StagingTimeout(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
@@ -122,7 +125,8 @@ func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 }
 
 func TestAutoStartSystem_GuardBeamViolation(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	system.SetTestMode(true)
 
 	cfg := config.NewDefaultConfig()
@@ -149,7 +153,8 @@ func TestAutoStartSystem_GuardBeamViolation(t *testing.T) {
 }
 
 func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()
@@ -230,7 +235,8 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 }
 
 func TestAutoStartSystem_ManualOverride(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 	system.SetTestMode(true)
 
@@ -285,7 +291,8 @@ func TestAutoStartSystem_ManualOverride(t *testing.T) {
 }
 
 func TestAutoStartSystem_ConfigurationUpdate(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
@@ -293,10 +300,10 @@ func TestAutoStartSystem_ConfigurationUpdate(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
-	// Get initial config
+	// Get initial config (should be Sportsman default)
 	initialConfig := system.GetConfiguration()
-	if initialConfig.StagingTimeout != 7*time.Second {
-		t.Errorf("Expected 7s timeout for pro config, got %v", initialConfig.StagingTimeout)
+	if initialConfig.StagingTimeout != 10*time.Second {
+		t.Errorf("Expected 10s timeout for sportsman config, got %v", initialConfig.StagingTimeout)
 	}
 
 	// Update to sportsman configuration
@@ -318,7 +325,8 @@ func TestAutoStartSystem_ConfigurationUpdate(t *testing.T) {
 }
 
 func TestAutoStartSystem_EventHandlers(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	system.SetTestMode(true)
 
 	cfg := config.NewDefaultConfig()
@@ -371,7 +379,8 @@ func TestAutoStartSystem_EventHandlers(t *testing.T) {
 }
 
 func TestAutoStartSystem_RandomDelayCalculation(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 
 	cfg := config.NewDefaultConfig()
 	err := system.Initialize(context.Background(), cfg)
@@ -435,10 +444,17 @@ func TestAutoStartSystem_ClassSpecificConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			system := NewAutoStartSystem()
+			eventBus := events.NewEventBus(false)
+			system := NewAutoStartSystem(eventBus)
 
 			cfg := config.NewDefaultConfig()
 			cfg.TreeConfig.Type = tt.treeType
+			// Set racing class to match expected behavior
+			if tt.treeType == config.TreeSequencePro {
+				cfg.SetRacingClass("ProFourTenths")
+			} else {
+				cfg.SetRacingClass("Sportsman")
+			}
 
 			err := system.Initialize(context.Background(), cfg)
 			if err != nil {
@@ -460,7 +476,8 @@ func TestAutoStartSystem_ClassSpecificConfiguration(t *testing.T) {
 }
 
 func TestAutoStartSystem_SecondStageTimeoutAndCancel(t *testing.T) {
-	system := NewAutoStartSystem()
+	eventBus := events.NewEventBus(false)
+	system := NewAutoStartSystem(eventBus)
 	christmasTree := tree.NewChristmasTree()
 
 	cfg := config.NewDefaultConfig()

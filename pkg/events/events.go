@@ -10,7 +10,7 @@ type EventType string
 
 // Event types
 const (
-	// Tree events
+	// EventTreePreStage Tree events
 	EventTreePreStage      EventType = "tree.pre_stage"
 	EventTreeStage         EventType = "tree.stage"
 	EventTreeArmed         EventType = "tree.armed"
@@ -24,7 +24,7 @@ const (
 	EventTreeSequenceEnd   EventType = "tree.sequence_end"
 	EventTreeEmergencyStop EventType = "tree.emergency_stop"
 
-	// Timing events
+	// EventTimingBeamTrigger Timing events
 	EventTimingBeamTrigger EventType = "timing.beam_trigger"
 	EventTimingReaction    EventType = "timing.reaction"
 	EventTiming60Foot      EventType = "timing.60_foot"
@@ -33,13 +33,20 @@ const (
 	EventTimingQuarterMile EventType = "timing.quarter_mile"
 	EventTimingTrapSpeed   EventType = "timing.trap_speed"
 
-	// Race events
+	// EventAutoStartActivated Auto-start events
+	EventAutoStartActivated    EventType = "autostart.activated"
+	EventStagingTimeoutFoul    EventType = "autostart.staging_timeout_foul"
+	EventTreeSequenceTriggered EventType = "autostart.tree_sequence_triggered"
+	EventAutoStartFault        EventType = "autostart.fault"
+	EventAutoStartReset        EventType = "autostart.reset"
+
+	// EventRaceStart Race events
 	EventRaceStart    EventType = "race.start"
 	EventRaceComplete EventType = "race.complete"
 	EventRaceAbort    EventType = "race.abort"
 	EventRaceFoul     EventType = "race.foul"
 
-	// Beam events
+	// EventBeamBroken Beam events
 	EventBeamBroken   EventType = "beam.broken"
 	EventBeamRestored EventType = "beam.restored"
 )

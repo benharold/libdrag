@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benharold/libdrag/pkg/config"
+	"github.com/benharold/libdrag/pkg/events"
 	"github.com/benharold/libdrag/pkg/timing"
 	"github.com/benharold/libdrag/pkg/tree"
 )
@@ -37,8 +38,9 @@ type BeamState struct {
 
 // NewAutoStartIntegration creates a new integration instance
 func NewAutoStartIntegration(timingSystem *timing.TimingSystem, christmasTree *tree.ChristmasTree) *AutoStartIntegration {
+	eventBus := events.NewEventBus(false)
 	integration := &AutoStartIntegration{
-		autoStart:     NewAutoStartSystem(),
+		autoStart:     NewAutoStartSystem(eventBus),
 		timingSystem:  timingSystem,
 		christmasTree: christmasTree,
 		beamStates:    make(map[string]*BeamState),
