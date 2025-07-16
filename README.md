@@ -6,14 +6,14 @@
 
 > **⚠️ Work in Progress**: This library is under active development. While functional for basic drag racing simulation, it is not yet fully compliant with all NHRA/IHRA standards. See [Compliance Status](#compliance-status) below.
 
-A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including CompuLink auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
+A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including professional auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
 
 ## 🚧 Project Status
 
 **Current Version**: v0.1.0-alpha (In Development)
 
 This library currently implements core drag racing simulation with:
-- ✅ Basic CompuLink auto-start system (three-light rule)
+- ✅ Basic auto-start system (three-light rule)
 - ✅ Christmas tree sequencing (Pro/Sportsman)
 - ✅ High-precision timing system
 - ✅ Concurrent race support
@@ -26,8 +26,8 @@ This library currently implements core drag racing simulation with:
 
 - 🏁 **Accurate Race Simulation**: Simulates NHRA/IHRA drag racing with realistic timing
 - 🚦 **Christmas Tree**: Full Christmas tree light sequence simulation
-- ⏱️ **Precision Timing**: High-precision timing system for accurate race results
-- 🚗 **Vehicle Simulation**: Configurable vehicle performance characteristics
+- ⏱️ **Precision Timing**: High-precision timing system for accurate race results  
+- 🚗 **Vehicle Simulation**: Basic vehicle positioning and staging simulation
 - 🎮 **Cross-Platform**: Works on Windows, macOS, Linux, and mobile platforms
 - 📊 **JSON API**: Clean JSON interface for easy integration
 - 🔧 **Configurable**: Flexible configuration system for different racing formats
@@ -41,47 +41,7 @@ go get github.com/benharold/libdrag
 
 ## Quick Start
 
-### Basic Single Race (Legacy API)
-
-```go
-package main
-
-import (
-    "fmt"
-    "time"
-    "github.com/benharold/libdrag/pkg/api"
-)
-
-func main() {
-    // Create and initialize the libdrag API
-    libdragAPI := api.NewLibDragAPI()
-    
-    if err := libdragAPI.Initialize(); err != nil {
-        panic(err)
-    }
-    
-    // Start a race
-    if err := libdragAPI.StartRace(); err != nil {
-        panic(err)
-    }
-    
-    // Wait for race completion
-    for !libdragAPI.IsRaceComplete() {
-        time.Sleep(100 * time.Millisecond)
-    }
-    
-    // Get results
-    results := libdragAPI.GetResultsJSON()
-    fmt.Println("Race Results:", results)
-    
-    // Clean shutdown
-    if err := libdragAPI.Stop(); err != nil {
-        panic(err)
-    }
-}
-```
-
-### Multiple Concurrent Races (New API)
+### Basic Usage
 
 ```go
 package main
@@ -140,15 +100,6 @@ func main() {
 - `Stop() error` - Shutdown the system and cleanup all races
 
 ### Race Management
-
-#### Legacy Single Race API
-- `StartRace() error` - Start a new drag race (legacy method)
-- `IsRaceComplete() bool` - Check if the current race is finished
-- `GetResultsJSON() string` - Get race results as JSON
-- `GetTreeStatusJSON() string` - Get Christmas tree status as JSON
-- `GetRaceStatusJSON() string` - Get current race status as JSON
-
-#### Multi-Race API with IDs
 - `StartRaceWithID() (string, error)` - Start a new race and return unique race ID
 - `IsRaceCompleteByID(raceID string) bool` - Check if a specific race is finished
 - `GetResultsJSONByID(raceID string) string` - Get race results as JSON for specific race
@@ -227,12 +178,12 @@ start coverage.html
 
 The library maintains high test coverage for core drag racing functionality:
 
-- **🚦 Christmas Tree (`pkg/tree`)**: **80%+ coverage**
+- **🚦 Christmas Tree (`pkg/tree`)**: **68%+ coverage**
   - Pre-stage/stage light sequences
   - Pro vs Sportsman tree timing (0.4s vs 0.5s)
   - Tree arming and error handling
 
-- **⏱️ Timing System (`pkg/timing`)**: **55%+ coverage**
+- **⏱️ Timing System (`pkg/timing`)**: **75%+ coverage**
   - Reaction time calculations
   - 60-foot, 1/8 mile, 1/4 mile splits
   - Red light detection (jumping the start)
@@ -332,7 +283,7 @@ The library is structured with clear separation of concerns:
 - **pkg/component**: Component system architecture
 - **pkg/config**: Configuration management
 - **pkg/events**: Event bus system for component communication
-- **internal/vehicle**: Vehicle simulation (internal implementation)
+- **internal/vehicle**: Basic vehicle simulation (internal implementation)
 
 ## Racing Formats Supported
 

@@ -53,12 +53,6 @@ func (api *LibDragAPI) Initialize() error {
 	return nil
 }
 
-// StartRace starts a new drag race (legacy method for backward compatibility)
-func (api *LibDragAPI) StartRace() error {
-	_, err := api.StartRaceWithID()
-	return err
-}
-
 // StartRaceWithID starts a new drag race and returns a unique race ID
 func (api *LibDragAPI) StartRaceWithID() (string, error) {
 	api.mu.Lock()
@@ -139,21 +133,6 @@ func (api *LibDragAPI) monitorRaceCompletion(raceID string) {
 }
 
 // GetRaceStatusJSON returns race status as JSON (legacy method)
-func (api *LibDragAPI) GetRaceStatusJSON() string {
-	api.mu.RLock()
-	defer api.mu.RUnlock()
-
-	// Return status of the first race for backward compatibility
-	for _, orchestrator := range api.orchestrators {
-		status := orchestrator.GetRaceStatus()
-		jsonData, _ := json.Marshal(status)
-		return string(jsonData)
-	}
-
-	// No active races
-	return "{\"state\":\"idle\"}"
-}
-
 // GetRaceStatusJSONByID returns race status as JSON for a specific race
 func (api *LibDragAPI) GetRaceStatusJSONByID(raceID string) string {
 	api.mu.RLock()
@@ -169,21 +148,7 @@ func (api *LibDragAPI) GetRaceStatusJSONByID(raceID string) string {
 	return string(jsonData)
 }
 
-// GetTreeStatusJSON returns Christmas tree status as JSON (legacy method)
-func (api *LibDragAPI) GetTreeStatusJSON() string {
-	api.mu.RLock()
-	defer api.mu.RUnlock()
-
-	for _, orchestrator := range api.orchestrators {
-		status := orchestrator.GetTreeStatus()
-		jsonData, _ := json.Marshal(status)
-		return string(jsonData)
-	}
-
-	return "{\"state\":\"idle\"}"
-}
-
-// GetTreeStatusJSONByID returns Christmas tree status as JSON for a specific race
+// GetTreeStatusJSONByID returns christmas tree status as JSON for a specific race
 func (api *LibDragAPI) GetTreeStatusJSONByID(raceID string) string {
 	api.mu.RLock()
 	defer api.mu.RUnlock()
@@ -199,19 +164,6 @@ func (api *LibDragAPI) GetTreeStatusJSONByID(raceID string) string {
 }
 
 // GetResultsJSON returns race results as JSON (legacy method)
-func (api *LibDragAPI) GetResultsJSON() string {
-	api.mu.RLock()
-	defer api.mu.RUnlock()
-
-	for _, orchestrator := range api.orchestrators {
-		results := orchestrator.GetResults()
-		jsonData, _ := json.Marshal(results)
-		return string(jsonData)
-	}
-
-	return "{}"
-}
-
 // GetResultsJSONByID returns race results as JSON for a specific race
 func (api *LibDragAPI) GetResultsJSONByID(raceID string) string {
 	api.mu.RLock()
@@ -228,18 +180,6 @@ func (api *LibDragAPI) GetResultsJSONByID(raceID string) string {
 }
 
 // IsRaceComplete checks if the current race is finished (legacy method)
-func (api *LibDragAPI) IsRaceComplete() bool {
-	api.mu.RLock()
-	defer api.mu.RUnlock()
-
-	for _, orch := range api.orchestrators {
-		status := orch.GetRaceStatus()
-		return status.State == orchestrator.RaceStateComplete
-	}
-
-	return true // No active races
-}
-
 // IsRaceCompleteByID checks if a specific race is finished
 func (api *LibDragAPI) IsRaceCompleteByID(raceID string) bool {
 	api.mu.RLock()
