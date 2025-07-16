@@ -199,19 +199,22 @@ This document establishes the libdrag library's compliance with official NHRA an
 
 ### Centerline Violation Detection (NHRA 6.1.2)
 
-**Required for Professional Events**:
-- ❌ **NOT IMPLEMENTED** - Critical compliance gap
-- Lane boundary monitoring required
-- Automatic foul assessment
-- Safety crew notification
+**Manual Detection by Track Officials**:
+- ❌ **NO OFFICIAL INTEGRATION** - Administrative gap
+- Centerline violations detected manually by track officials
+- No automated equipment exists for centerline detection
+- API needed for officials to record violations in timing system
+- Integration with results system required
 
 ### Guard Beam Specifications (NHRA 6.1.3)
 
 **Current Implementation**: ✅ Basic guard beam at 13.375 inches
+**CompuLink Standard**: Automated rollout distance enforcement
 **Missing Features**:
-- ❌ Rollout distance enforcement varies by class
+- ❌ Automated rollout distance enforcement by class
 - ❌ Professional class rollout limits (6 inches max)
 - ❌ Sportsman class rollout limits (12 inches max)
+- ❌ False trigger filtering (debris/insects)
 
 ## Deep Staging Rule Compliance
 
@@ -248,9 +251,9 @@ This document establishes the libdrag library's compliance with official NHRA an
 
 ### ❌ Non-Compliant Features (Critical Gaps)
 - **Deep staging restrictions not enforced**
-- **Missing centerline violation detection**
+- **Missing automated guard beam rollout enforcement**
+- **No official integration for manual violation recording**
 - **Incomplete class-specific configurations**
-- **No boundary beam systems**
 - **Limited race director override capabilities**
 - **Missing professional precision requirements**
 
@@ -277,8 +280,8 @@ This document establishes the libdrag library's compliance with official NHRA an
 
 ### Phase 1: Critical Compliance (Safety)
 1. Add deep staging restriction enforcement
-2. Implement centerline violation detection
-3. Add class-specific guard beam enforcement
+2. Implement automated guard beam rollout enforcement
+3. Create manual violation recording interface for track officials
 4. Enhance emergency stop protocols
 
 ### Phase 2: Class Configuration Expansion
