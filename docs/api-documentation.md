@@ -70,11 +70,6 @@ Starts a new drag race and returns a unique race identifier.
 - `string`: Unique race ID (UUID format)
 - `error`: Error if race cannot be started
 
-#### `StartRace() error` *(Legacy)*
-Starts a new drag race without returning the race ID. Provided for backward compatibility.
-
-**Returns:**
-- `error`: Error if race cannot be started
 
 #### `CompleteRace(raceID string) error`
 Manually completes a race and cleans up resources.
@@ -118,9 +113,6 @@ Returns the current race status as JSON for a specific race.
 }
 ```
 
-#### `GetRaceStatusJSON() string` *(Legacy)*
-Returns race status for the first active race. For backward compatibility.
-
 #### `IsRaceCompleteByID(raceID string) bool`
 Checks if a specific race has finished.
 
@@ -129,9 +121,6 @@ Checks if a specific race has finished.
 
 **Returns:**
 - `bool`: True if race is complete, false if still running
-
-#### `IsRaceComplete() bool` *(Legacy)*
-Checks if any active race is complete. For backward compatibility.
 
 ### Christmas Tree Status
 
@@ -174,9 +163,6 @@ Returns the Christmas tree light status as JSON for a specific race.
 }
 ```
 
-#### `GetTreeStatusJSON() string` *(Legacy)*
-Returns tree status for the first active race.
-
 ### Race Results
 
 #### `GetResultsJSONByID(raceID string) string`
@@ -212,9 +198,6 @@ Returns the final race results as JSON for a specific race.
   }
 }
 ```
-
-#### `GetResultsJSON() string` *(Legacy)*
-Returns results for the first active race.
 
 ### Race Management
 
