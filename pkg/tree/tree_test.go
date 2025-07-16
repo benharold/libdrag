@@ -91,7 +91,7 @@ func TestPreStage(t *testing.T) {
 	}
 
 	// Test single lane pre-stage
-	tree.SetPreStage(1)
+	tree.SetPreStage(1, true)
 
 	// Verify pre-stage light is on for lane 1
 	status := tree.GetTreeStatus()
@@ -100,7 +100,7 @@ func TestPreStage(t *testing.T) {
 	}
 
 	// Pre-stage lane 2
-	tree.SetPreStage(2)
+	tree.SetPreStage(2, true)
 
 	// Verify pre-stage light is on for lane 2
 	if status.LightStates[2][LightPreStage] != LightOn {
@@ -120,8 +120,8 @@ func TestStage(t *testing.T) {
 	}
 
 	// Stage both lanes
-	tree.SetStage(1)
-	tree.SetStage(2)
+	tree.SetStage(1, true)
+	tree.SetStage(2, true)
 
 	// Verify stage light is on for lane 1
 	status := tree.GetTreeStatus()
@@ -308,8 +308,8 @@ func TestChristmasTreeEmergencyStop(t *testing.T) {
 	}
 
 	// Set some lights on to verify they get cleared
-	tree.SetPreStage(1)
-	tree.SetStage(1)
+	tree.SetPreStage(1, true)
+	tree.SetStage(1, true)
 
 	// Verify initial state
 	treeStatus := tree.GetTreeStatus()
@@ -382,13 +382,13 @@ func TestChristmasTreeAllStaged(t *testing.T) {
 	}
 
 	// Stage only lane 1
-	tree.SetStage(1)
+	tree.SetStage(1, true)
 	if tree.AllStaged() {
 		t.Fatal("Tree should not be all staged when only lane 1 is staged")
 	}
 
 	// Stage lane 2 as well (assuming 2-lane track from config)
-	tree.SetStage(2)
+	tree.SetStage(2, true)
 	if !tree.AllStaged() {
 		t.Fatal("Tree should be all staged when both lanes are staged")
 	}

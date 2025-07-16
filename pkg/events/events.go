@@ -49,6 +49,13 @@ const (
 	// EventBeamBroken Beam events
 	EventBeamBroken   EventType = "beam.broken"
 	EventBeamRestored EventType = "beam.restored"
+
+	// Deep staging events
+	EventTreeDeepStage          EventType = "tree.deep_stage"
+	EventTreeDeepStageViolation EventType = "tree.deep_stage_violation"
+	
+	// Staging motion violation events
+	EventTreeStagingViolation   EventType = "tree.staging_violation"
 )
 
 // Event represents a racing event

@@ -40,7 +40,7 @@ LibDrag is a professional drag racing simulation library implementing CompuLink 
 - **pkg/api**: Public JSON API supporting concurrent races with unique UUIDs
 - **pkg/orchestrator**: Race state management (Idle → Preparing → Staging → Armed → Running → Complete)
 - **pkg/autostart**: CompuLink auto-start system with three-light rule and staging timeout
-- **pkg/tree**: Christmas tree with Armed/Activated states, Pro vs Sportsman sequences
+- **pkg/tree**: Christmas tree with Armed/Activated states, Pro vs Sportsman sequences, deep staging detection
 - **pkg/timing**: High-precision timing system with beam integration and foul detection
 - **pkg/beam**: Beam state management for pre-stage, stage, and timing beams
 - **pkg/events**: Event bus with comprehensive race event taxonomy
@@ -72,7 +72,7 @@ Component status → Orchestrator → API status reporting
 ## Testing Strategy
 
 ### Coverage Targets
-- **Christmas Tree (pkg/tree)**: 80%+ coverage - Pre-stage/stage sequences, Pro vs Sportsman timing
+- **Christmas Tree (pkg/tree)**: 80%+ coverage - Pre-stage/stage sequences, Pro vs Sportsman timing, deep staging enforcement
 - **Timing System (pkg/timing)**: 55%+ coverage - Reaction times, splits, red light detection  
 - **Configuration (pkg/config)**: 60%+ coverage - NHRA defaults, validation
 
@@ -80,6 +80,7 @@ Component status → Orchestrator → API status reporting
 - **Unit Tests**: Individual component testing in isolation
 - **Integration Tests**: Component interaction testing (`pkg/orchestrator`, `pkg/api`)
 - **Auto-Start Integration**: Real-world auto-start system behavior (`pkg/autostart/integration.go`)
+- **Deep Staging Tests**: TDD implementation with comprehensive class-specific rule testing (`pkg/tree/deep_staging_test.go`)
 
 ## Standards Compliance
 
@@ -95,7 +96,8 @@ LibDrag implements official NHRA and IHRA sanctioning body requirements:
 - ✅ Class-specific staging timeouts (7s Professional, 10s Sportsman, 15s Bracket)
 - ✅ Random delay specifications (0.6-1.1s Pro, 0.6-1.4s Sportsman)
 - ✅ Pro vs Sportsman tree sequences (0.4s/0.5s green delays)
-- ❌ **Deep staging restrictions enforcement** (Critical gap for Super Gas/Stock/Street)
+- ✅ **Deep staging restrictions enforcement** (Super Gas/Stock/Street prohibited, Pro classes allowed)
+- ✅ **Forward motion staging rule** (Last motion must be forward, no backing and re-staging)
 - ❌ **Centerline violation detection** (Required for professional events)
 
 ## Project Structure
@@ -115,4 +117,25 @@ LibDrag implements official NHRA and IHRA sanctioning body requirements:
 - **Activated**: Auto-start system has automatically detected staging conditions
 - **Three-Light Rule**: Auto-start activates when 2 pre-stage + 1 stage light achieved
 - **Deep Staging**: Vehicle positioned past stage beam (advanced technique)
+- **Deep Staging Violation**: Prohibited in Super Gas, Super Stock, and Super Street classes
 - **Red Light**: Foul start - vehicle left before green light
+
+## Deep Staging Implementation
+
+### Class-Specific Rules
+- **Prohibited Classes**: Super Gas, Super Stock, Super Street
+- **Allowed Classes**: Top Fuel, Funny Car, Pro Stock, Bracket Racing
+- **Detection**: Pre-stage light OFF + Stage light ON = Deep staging detected
+- **Events**: `tree.deep_stage_violation` for prohibited classes, `tree.deep_stage` for allowed classes
+
+### Forward Motion Staging Rule
+- **Rule**: Last motion into staging area MUST be forward motion
+- **Legal Sequence**: Pre-stage → Stage → Deep Stage (optional)
+- **Violation**: Pre-stage → Stage → Back out of Stage → Re-enter Stage
+- **Reset**: Complete back-out (both beams clear) resets motion tracking
+- **Events**: `tree.staging_violation` with violation type `backward_staging_motion`
+
+### Method Signatures
+- `SetPreStage(lane int, beamBroken bool)` - Pre-stage beam state
+- `SetStage(lane int, beamBroken bool)` - Stage beam state
+- Light states follow beam states: broken beam = light ON, clear beam = light OFF
