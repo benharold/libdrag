@@ -63,24 +63,32 @@ type Event struct {
 // EventHandler is a function that handles events
 type EventHandler func(event Event)
 
+// subscription holds a handler and its ID for removal
+type subscription struct {
+	id      int
+	handler EventHandler
+}
+
 // EventBus manages event subscriptions and publishing
 type EventBus struct {
 	mu          sync.RWMutex
-	handlers    map[EventType][]EventHandler
-	allHandlers []EventHandler // Handlers that receive all events
+	handlers    map[EventType][]subscription
+	allHandlers []subscription // Handlers that receive all events
 	asyncMode   bool
 	eventQueue  chan Event
 	done        chan struct{}
 	wg          sync.WaitGroup
+	nextID      int
 }
 
 // NewEventBus creates a new event bus
 func NewEventBus(asyncMode bool) *EventBus {
 	eb := &EventBus{
-		handlers:    make(map[EventType][]EventHandler),
-		allHandlers: make([]EventHandler, 0),
+		handlers:    make(map[EventType][]subscription),
+		allHandlers: make([]subscription, 0),
 		asyncMode:   asyncMode,
 		done:        make(chan struct{}),
+		nextID:      1,
 	}
 
 	if asyncMode {
@@ -97,11 +105,18 @@ func (eb *EventBus) Subscribe(eventType EventType, handler EventHandler) func() 
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	eb.handlers[eventType] = append(eb.handlers[eventType], handler)
+	// Create subscription with unique ID
+	sub := subscription{
+		id:      eb.nextID,
+		handler: handler,
+	}
+	eb.nextID++
 
-	// Return unsubscribe function
+	eb.handlers[eventType] = append(eb.handlers[eventType], sub)
+
+	// Return unsubscribe function that uses the ID
 	return func() {
-		eb.Unsubscribe(eventType, handler)
+		eb.unsubscribeByID(eventType, sub.id, false)
 	}
 }
 
@@ -110,40 +125,43 @@ func (eb *EventBus) SubscribeAll(handler EventHandler) func() {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	eb.allHandlers = append(eb.allHandlers, handler)
+	// Create subscription with unique ID
+	sub := subscription{
+		id:      eb.nextID,
+		handler: handler,
+	}
+	eb.nextID++
 
-	// Return unsubscribe function
+	eb.allHandlers = append(eb.allHandlers, sub)
+
+	// Return unsubscribe function that uses the ID
 	return func() {
-		eb.UnsubscribeAll(handler)
+		eb.unsubscribeByID("", sub.id, true)
 	}
 }
 
-// Unsubscribe removes a handler for a specific event type
-func (eb *EventBus) Unsubscribe(eventType EventType, handler EventHandler) {
+// unsubscribeByID removes a subscription by ID
+func (eb *EventBus) unsubscribeByID(eventType EventType, id int, allEvents bool) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	handlers := eb.handlers[eventType]
-	for i := range handlers {
-		// Note: In Go, we can't directly compare function values
-		// This is a limitation - in practice, you might want to return
-		// a subscription ID instead
-		if i < len(handlers) {
-			// For now, we'll remove by index
-			eb.handlers[eventType] = append(handlers[:i], handlers[i+1:]...)
-			break
+	if allEvents {
+		// Remove from all-event handlers
+		for i, sub := range eb.allHandlers {
+			if sub.id == id {
+				eb.allHandlers = append(eb.allHandlers[:i], eb.allHandlers[i+1:]...)
+				break
+			}
 		}
-	}
-}
-
-// UnsubscribeAll removes a handler from all events
-func (eb *EventBus) UnsubscribeAll(handler EventHandler) {
-	eb.mu.Lock()
-	defer eb.mu.Unlock()
-
-	// Similar limitation as above
-	if len(eb.allHandlers) > 0 {
-		eb.allHandlers = eb.allHandlers[:len(eb.allHandlers)-1]
+	} else {
+		// Remove from specific event handlers
+		handlers := eb.handlers[eventType]
+		for i, sub := range handlers {
+			if sub.id == id {
+				eb.handlers[eventType] = append(handlers[:i], handlers[i+1:]...)
+				break
+			}
+		}
 	}
 }
 
@@ -170,20 +188,20 @@ func (eb *EventBus) Publish(event Event) {
 // deliver sends the event to handlers
 func (eb *EventBus) deliver(event Event) {
 	eb.mu.RLock()
-	handlers := make([]EventHandler, len(eb.handlers[event.Type]))
+	handlers := make([]subscription, len(eb.handlers[event.Type]))
 	copy(handlers, eb.handlers[event.Type])
-	allHandlers := make([]EventHandler, len(eb.allHandlers))
+	allHandlers := make([]subscription, len(eb.allHandlers))
 	copy(allHandlers, eb.allHandlers)
 	eb.mu.RUnlock()
 
 	// Deliver to specific handlers
-	for _, handler := range handlers {
-		handler(event)
+	for _, sub := range handlers {
+		sub.handler(event)
 	}
 
 	// Deliver to all-event handlers
-	for _, handler := range allHandlers {
-		handler(event)
+	for _, sub := range allHandlers {
+		sub.handler(event)
 	}
 }
 
@@ -221,8 +239,9 @@ func (eb *EventBus) Clear() {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	eb.handlers = make(map[EventType][]EventHandler)
-	eb.allHandlers = make([]EventHandler, 0)
+	eb.handlers = make(map[EventType][]subscription)
+	eb.allHandlers = make([]subscription, 0)
+	eb.nextID = 1
 }
 
 // EventBuilder provides a fluent interface for creating events
