@@ -1,6 +1,26 @@
 # libdrag
 
-A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including timing systems, Christmas tree sequencing, and race orchestration.
+[![Go Reference](https://pkg.go.dev/badge/github.com/benharold/libdrag.svg)](https://pkg.go.dev/github.com/benharold/libdrag)
+[![Go Report Card](https://goreportcard.com/badge/github.com/benharold/libdrag)](https://goreportcard.com/report/github.com/benharold/libdrag)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **⚠️ Work in Progress**: This library is under active development. While functional for basic drag racing simulation, it is not yet fully compliant with all NHRA/IHRA standards. See [Compliance Status](#compliance-status) below.
+
+A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including CompuLink auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
+
+## 🚧 Project Status
+
+**Current Version**: v0.1.0-alpha (In Development)
+
+This library currently implements core drag racing simulation with:
+- ✅ Basic CompuLink auto-start system (three-light rule)
+- ✅ Christmas tree sequencing (Pro/Sportsman)
+- ✅ High-precision timing system
+- ✅ Concurrent race support
+- ✅ Event-driven architecture
+- ⚠️ **Partial NHRA/IHRA compliance** (see [docs/nhra-ihra-compliance.md](docs/nhra-ihra-compliance.md))
+
+**Not yet production-ready for professional racing events.**
 
 ## Features
 
@@ -331,6 +351,26 @@ The library supports multiple simultaneous races with these features:
 - **Resource Management**: Efficient memory usage with proper cleanup
 - **Timeout Protection**: Races automatically timeout after 30 seconds
 
+## Compliance Status
+
+### ✅ Currently Implemented (NHRA/IHRA Compliant)
+- Three-light rule auto-start activation (NHRA 4.4.1, IHRA 3.2.2)
+- Pro Tree (0.4s) and Sportsman Tree (0.5s) sequences
+- Basic staging timeouts (7s Professional, 10s Sportsman)
+- Random delay generation (0.6-1.1s Pro, 0.6-1.4s Sportsman)
+- Guard beam violation detection
+- Emergency stop protocols
+
+### ❌ Not Yet Implemented (Critical for Full Compliance)
+- **Deep staging restrictions enforcement** (Super Gas/Stock/Street classes)
+- **Centerline violation detection** (Required for professional events)
+- **Complete class configurations** (missing 10+ NHRA/IHRA classes)
+- **Enhanced safety systems** (boundary beams, backup timing)
+- **Race director override capabilities**
+- **Anti-cheating systems** (delay box detection)
+
+See [docs/nhra-ihra-compliance.md](docs/nhra-ihra-compliance.md) for detailed compliance status.
+
 ## Use Cases
 
 - **Racing Games**: Integrate realistic drag racing into gaming applications
@@ -339,15 +379,63 @@ The library supports multiple simultaneous races with these features:
 - **Analysis Tools**: Analyze racing data and performance
 - **Educational**: Learn about drag racing timing and procedures
 - **Multi-User Platforms**: Support multiple simultaneous users/races
+- **Development Reference**: Study CompuLink auto-start system implementation
+
+## Future Possibilities
+
+As a hobby project, development happens when time and interest allow. Potential future enhancements include:
+
+### Enhanced Compliance Features
+- Deep staging restriction enforcement
+- Complete NHRA/IHRA class configurations
+- Enhanced auto-start system features
+- Centerline violation detection
+
+### Advanced Features
+- Race director control panel
+- Hardware integration support
+- Anti-cheating detection systems
+- Enhanced safety protocols
+
+### Community Contributions
+- IHRA-specific rule variations
+- Regional track configurations
+- Performance optimizations
+- Documentation improvements
+
+No timelines are set - contributions and development happen organically based on community interest and available time.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit pull requests, create issues, or suggest new features.
+🎯 **Contributions welcome!** This hobby project would benefit from:
+
+- **Drag racing experts** with NHRA/IHRA rule knowledge
+- **Timing system experience** (CompuLink, etc.)
+- **Go developers** interested in motorsports
+- **Documentation improvements**
+- **Test coverage expansion**
+
+### Getting Started
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure `make test` passes
+6. Submit a pull request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## Support & Community
 
-For questions, issues, or feature requests, please create an issue on GitHub.
+- 🐛 **Bug Reports**: [Create an issue](https://github.com/benharold/libdrag/issues)
+- 💡 **Feature Requests**: [Create an issue](https://github.com/benharold/libdrag/issues)
+- 💬 **Questions**: [GitHub Discussions](https://github.com/benharold/libdrag/discussions)
+- 📖 **Documentation**: [docs/](docs/) directory
+
+## Acknowledgments
+
+- **NHRA** and **IHRA** for drag racing standards and specifications
+- **CompuLink** for auto-start system protocols
+- The drag racing community for technical expertise and feedback

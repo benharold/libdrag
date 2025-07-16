@@ -64,7 +64,7 @@ type DefaultConfig struct {
 	TimingConfig TimingConfig       `json:"timing"`
 	TreeConfig   TreeSequenceConfig `json:"tree"`
 	SafetyConfig SafetyConfig       `json:"safety"`
-	racingClass  string             `json:"racing_class"` // Private field
+	racingClass  string             // Private field
 }
 
 func (c *DefaultConfig) Track() TrackConfig {
