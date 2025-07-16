@@ -5,15 +5,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **⚠️ Work in Progress**: This library is under active development. While functional for basic drag racing simulation, it is not yet fully compliant with all NHRA/IHRA standards. See [Compliance Status](#compliance-status) below.
-
-A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including CompuLink auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
-
+A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including professional auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
 ## 🚧 Project Status
 
 **Current Version**: v0.1.0-alpha (In Development)
 
 This library currently implements core drag racing simulation with:
-- ✅ Basic CompuLink auto-start system (three-light rule)
+- ✅ Basic auto-start system (three-light rule)
 - ✅ Christmas tree sequencing (Pro/Sportsman)
 - ✅ High-precision timing system
 - ✅ Concurrent race support
@@ -41,47 +39,7 @@ go get github.com/benharold/libdrag
 
 ## Quick Start
 
-### Basic Single Race (Legacy API)
-
-```go
-package main
-
-import (
-    "fmt"
-    "time"
-    "github.com/benharold/libdrag/pkg/api"
-)
-
-func main() {
-    // Create and initialize the libdrag API
-    libdragAPI := api.NewLibDragAPI()
-    
-    if err := libdragAPI.Initialize(); err != nil {
-        panic(err)
-    }
-    
-    // Start a race
-    if err := libdragAPI.StartRace(); err != nil {
-        panic(err)
-    }
-    
-    // Wait for race completion
-    for !libdragAPI.IsRaceComplete() {
-        time.Sleep(100 * time.Millisecond)
-    }
-    
-    // Get results
-    results := libdragAPI.GetResultsJSON()
-    fmt.Println("Race Results:", results)
-    
-    // Clean shutdown
-    if err := libdragAPI.Stop(); err != nil {
-        panic(err)
-    }
-}
-```
-
-### Multiple Concurrent Races (New API)
+### Basic Usage
 
 ```go
 package main
