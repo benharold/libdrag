@@ -81,6 +81,7 @@ tags
 # End of https://www.toptal.com/developers/gitignore/api/go,macos,vim
 
 # IDE files
+.idea/
 .vscode/
 
 # Project-specific
