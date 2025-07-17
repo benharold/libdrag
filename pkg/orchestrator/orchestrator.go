@@ -146,10 +146,10 @@ func (ro *RaceOrchestrator) StartRace(leftVehicle, rightVehicle *vehicle.SimpleV
 func (ro *RaceOrchestrator) simulateRaceSequence() {
 	// Simulate vehicles entering pre-stage
 	time.Sleep(500 * time.Millisecond)
-	ro.christmasTree.SetPreStage(1)
+	ro.christmasTree.SetPreStage(1, true)
 
 	time.Sleep(200 * time.Millisecond)
-	ro.christmasTree.SetPreStage(2)
+	ro.christmasTree.SetPreStage(2, true)
 
 	// Update state to armed
 	ro.mu.Lock()
@@ -158,10 +158,10 @@ func (ro *RaceOrchestrator) simulateRaceSequence() {
 
 	// Simulate vehicles entering stage
 	time.Sleep(500 * time.Millisecond)
-	ro.christmasTree.SetStage(1)
+	ro.christmasTree.SetStage(1, true)
 
 	time.Sleep(300 * time.Millisecond)
-	ro.christmasTree.SetStage(2)
+	ro.christmasTree.SetStage(2, true)
 
 	// Wait briefly, then start the tree sequence
 	time.Sleep(500 * time.Millisecond)

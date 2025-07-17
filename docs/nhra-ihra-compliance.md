@@ -216,28 +216,38 @@ This document establishes the libdrag library's compliance with official NHRA an
 - ❌ Sportsman class rollout limits (12 inches max)
 - ❌ False trigger filtering (debris/insects)
 
-## Deep Staging Rule Compliance
+## Deep Staging Rule Compliance ✅ IMPLEMENTED
 
 ### Classes Prohibiting Deep Staging
 
 **NHRA Rules (Sections 9.1-9.3)**:
-- ❌ **NOT ENFORCED** - Critical compliance gap
-- Super Gas: Deep staging prohibited (Rule 9.1.4)
-- Super Stock: Deep staging prohibited (Rule 9.2.4)  
-- Super Street: Deep staging prohibited (Rule 9.3.4)
+- ✅ **FULLY ENFORCED** - Implementation complete
+- Super Gas: Deep staging prohibited (Rule 9.1.4) ✅
+- Super Stock: Deep staging prohibited (Rule 9.2.4) ✅
+- Super Street: Deep staging prohibited (Rule 9.3.4) ✅
 
-**Required Implementation**:
-- Pre-stage light must remain illuminated when staged
-- Automatic foul if pre-stage light extinguished
-- Class-specific enforcement in auto-start system
+**Implementation Details**:
+- ✅ Pre-stage light monitoring when staged
+- ✅ Automatic violation detection if pre-stage light extinguished
+- ✅ Class-specific enforcement in auto-start system
+- ✅ Real-time event publishing for track officials
 
-### Deep Staging Detection Requirements
+### Deep Staging Detection Implementation
 
-**Technical Implementation Needed**:
-- Monitor pre-stage beam state when staged
-- Detect when vehicle moves past stage beam
-- Class-specific violation enforcement
-- "DEEP" indicator light activation
+**Technical Features Implemented**:
+- ✅ Monitor pre-stage beam state when staged
+- ✅ Detect when vehicle moves past stage beam
+- ✅ Class-specific violation enforcement
+- ✅ Forward motion staging rule enforcement
+- ✅ Event system integration with detailed violation data
+
+### Forward Motion Staging Rule ✅ IMPLEMENTED
+
+**NHRA/IHRA Requirement**: Last motion into staging area must be forward
+- ✅ Real-time motion tracking per lane
+- ✅ Violation detection for backing and re-staging
+- ✅ Motion history logging for audit purposes
+- ✅ Complete back-out reset functionality
 
 ## Current Implementation Status
 
@@ -248,9 +258,10 @@ This document establishes the libdrag library's compliance with official NHRA an
 - Pro vs Sportsman tree sequence timing
 - Basic guard beam violation detection
 - Emergency stop functionality
+- **Deep staging restrictions enforcement** ✅
+- **Forward motion staging rule enforcement** ✅
 
 ### ❌ Non-Compliant Features (Critical Gaps)
-- **Deep staging restrictions not enforced**
 - **Missing automated guard beam rollout enforcement**
 - **No official integration for manual violation recording**
 - **Incomplete class-specific configurations**
@@ -279,10 +290,11 @@ This document establishes the libdrag library's compliance with official NHRA an
 ## Implementation Roadmap
 
 ### Phase 1: Critical Compliance (Safety)
-1. Add deep staging restriction enforcement
-2. Implement automated guard beam rollout enforcement
-3. Create manual violation recording interface for track officials
-4. Enhance emergency stop protocols
+1. ✅ Add deep staging restriction enforcement
+2. ✅ Add forward motion staging rule enforcement
+3. Implement automated guard beam rollout enforcement
+4. Create manual violation recording interface for track officials
+5. Enhance emergency stop protocols
 
 ### Phase 2: Class Configuration Expansion
 1. Add complete NHRA class configurations
@@ -304,5 +316,5 @@ This document establishes the libdrag library's compliance with official NHRA an
 - CompuLink Technical Specifications, CompuLink Corporation
 - NHRA Technical Bulletin Series 2024, Competition Department
 
-**Last Updated**: January 2025
+**Last Updated**: July 2025
 **Next Review**: Annually with rule book updates
