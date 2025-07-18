@@ -109,8 +109,8 @@ func (asi *AutoStartIntegration) Start(ctx context.Context) error {
 	}
 
 	// Arm auto-start system
-	if err := asi.autoStart.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start auto-start system: %w", err)
+	if err := asi.autoStart.Arm(ctx); err != nil {
+		return fmt.Errorf("failed to arm auto-start system: %w", err)
 	}
 
 	// Arm monitoring timing beam triggers
@@ -130,7 +130,7 @@ func (asi *AutoStartIntegration) Stop(ctx context.Context) error {
 	}
 
 	asi.running = false
-	return asi.autoStart.Stop(ctx)
+	return asi.autoStart.Disarm(ctx)
 }
 
 // setupEventHandlers configures auto-start event callbacks
