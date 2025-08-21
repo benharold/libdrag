@@ -11,12 +11,21 @@ type Config interface {
 	RacingClass() string // Added for class selection
 }
 
+// GuardBeamConfig defines guard beam specifications
+type GuardBeamConfig struct {
+	Position        float64 `json:"position"`         // Distance from stage beam (NHRA: 13.375")
+	AutoEnforcement bool    `json:"auto_enforcement"` // Enable automatic staging detection
+	FalseFilter     bool    `json:"false_filter"`     // Filter false triggers from debris
+}
+
 // TrackConfig defines track specifications
 type TrackConfig struct {
-	Length     float64               `json:"length"`      // Track length in feet
-	LaneCount  int                   `json:"lane_count"`  // Number of lanes
-	LaneWidth  float64               `json:"lane_width"`  // Width of each lane
-	BeamLayout map[string]BeamConfig `json:"beam_layout"` // Beam positions
+	Length           float64               `json:"length"`              // Track length in feet
+	LaneCount        int                   `json:"lane_count"`          // Number of lanes
+	LaneWidth        float64               `json:"lane_width"`          // Width of each lane
+	BeamLayout       map[string]BeamConfig `json:"beam_layout"`         // Beam positions
+	GuardBeam        GuardBeamConfig       `json:"guard_beam"`          // Guard beam configuration
+	IsLowRidingClass bool                  `json:"is_low_riding_class"` // Class uses guard beam staging
 }
 
 // BeamConfig defines timing beam specifications
@@ -91,9 +100,15 @@ func (c *DefaultConfig) RacingClass() string {
 func NewDefaultConfig() *DefaultConfig {
 	return &DefaultConfig{
 		TrackConfig: TrackConfig{
-			Length:    1320, // Quarter mile in feet
-			LaneCount: 2,
-			LaneWidth: 12, // 12 feet per lane
+			Length:           1320, // Quarter mile in feet
+			LaneCount:        2,
+			LaneWidth:        12, // 12 feet per lane
+			IsLowRidingClass: false, // Default to normal vehicles
+			GuardBeam: GuardBeamConfig{
+				Position:        13.375, // NHRA standard: 13 3/8 inches from stage beam
+				AutoEnforcement: true,   // Enable guard beam staging detection
+				FalseFilter:     true,   // Enable false trigger filtering
+			},
 			BeamLayout: map[string]BeamConfig{
 				"pre_stage": {
 					Name:     "Pre-Stage",

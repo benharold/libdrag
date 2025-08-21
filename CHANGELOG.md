@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Refactored AutoStart system to implement proper interfaces with KISS principle
+- Updated terminology: `Start()` → `Arm()`, `Stop()` → `Disarm()` for correct drag racing terms
+- Enhanced component architecture with comprehensive interface definitions
+
 ### Added
+- New `pkg/interfaces` package with TDD-tested domain interfaces for Starter, AutoStart, and RaceControl
+- Interface compliance for AutoStart system maintaining backward compatibility
+- Comprehensive test coverage for all interface implementations
 - Initial public release of libdrag library
 - CompuLink auto-start system implementation with three-light rule
 - Christmas tree sequencing (Pro and Sportsman)

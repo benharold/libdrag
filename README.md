@@ -7,7 +7,6 @@
 > **⚠️ Work in Progress**: This library is under active development. While functional for basic drag racing simulation, it is not yet fully compliant with all NHRA/IHRA standards. See [Compliance Status](#compliance-status) below.
 
 A cross-platform Go library for accurately simulating NHRA and IHRA drag racing events, including professional auto-start systems, Christmas tree sequencing, high-precision timing, and race orchestration.
-
 ## 🚧 Project Status
 
 **Current Version**: v0.1.0-alpha (In Development)

@@ -27,7 +27,7 @@ func TestAutoStartSystem_ThreeLightRule(t *testing.T) {
 		t.Fatalf("Failed to initialize tree: %v", err)
 	}
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestAutoStartSystem_StagingTimeout(t *testing.T) {
 	// Set test mode AFTER initialization to override the loaded config
 	system.SetTestMode(true)
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestAutoStartSystem_GuardBeamViolation(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestAutoStartSystem_FullStagingSequence(t *testing.T) {
 	// Set test mode AFTER initialization to override the loaded config
 	system.SetTestMode(true)
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestAutoStartSystem_ManualOverride(t *testing.T) {
 		t.Fatalf("Failed to initialize tree: %v", err)
 	}
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestAutoStartSystem_EventHandlers(t *testing.T) {
 		t.Fatalf("Failed to initialize: %v", err)
 	}
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -493,7 +493,7 @@ func TestAutoStartSystem_SecondStageTimeoutAndCancel(t *testing.T) {
 
 	system.SetTestMode(true)
 
-	err = system.Start(context.Background())
+	err = system.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestAutoStartSystem_SecondStageTimeoutAndCancel(t *testing.T) {
 	christmasTree.DisarmTree() // Reset tree Activated state
 
 	// Restart and re-arm for second subtest
-	system.Start(context.Background())
+	system.Arm(context.Background())
 	christmasTree.Arm(context.Background())
 
 	// Retrigger activation + first stage

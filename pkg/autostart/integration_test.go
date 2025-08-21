@@ -32,7 +32,7 @@ func TestThreeBeamAutomaticArming(t *testing.T) {
 	}
 
 	// Arm components
-	err = autoStart.Start(context.Background())
+	err = autoStart.Arm(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to start auto-start: %v", err)
 	}

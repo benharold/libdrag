@@ -9,7 +9,8 @@ import (
 
 	"github.com/benharold/libdrag/pkg/component"
 	"github.com/benharold/libdrag/pkg/config"
-	"github.com/benharold/libdrag/pkg/events" // Added for event bus
+	"github.com/benharold/libdrag/pkg/events"
+	"github.com/benharold/libdrag/pkg/interfaces"
 	"github.com/benharold/libdrag/pkg/tree"
 )
 
@@ -208,29 +209,29 @@ func (as *AutoStartSystem) Initialize(ctx context.Context, cfg config.Config) er
 	return nil
 }
 
-// Start starts the auto-start system
-func (as *AutoStartSystem) Start(ctx context.Context) error {
+// Arm arms the auto-start system to begin monitoring for staging
+func (as *AutoStartSystem) Arm(ctx context.Context) error {
 	as.mu.Lock()
 	defer as.mu.Unlock()
 
 	if as.running {
-		return fmt.Errorf("auto-start system already running")
+		return fmt.Errorf("auto-start system already armed")
 	}
 
 	as.running = true
-	as.compStatus.Status = "running"
-	as.status.State = StateIdle
+	as.compStatus.Status = "armed"
+	as.status.State = StateIdle // Start in idle, will transition to monitoring when tree is armed
 
 	return nil
 }
 
-// Stop stops the auto-start system
-func (as *AutoStartSystem) Stop(ctx context.Context) error {
+// Disarm disarms the auto-start system 
+func (as *AutoStartSystem) Disarm(ctx context.Context) error {
 	as.mu.Lock()
 	defer as.mu.Unlock()
 
 	as.running = false
-	as.compStatus.Status = "stopped"
+	as.compStatus.Status = "disarmed"
 	as.status.State = StateIdle
 
 	// Cancel any active timers
@@ -653,4 +654,95 @@ func (as *AutoStartSystem) startSecondStageTimeout() {
 			as.eventBus.Publish(events.NewEvent(events.EventStagingTimeoutFoul).WithLane(timedOutLane).Build())
 		}
 	})
+}
+
+// Simple interface implementation methods (KISS principle)
+
+func (as *AutoStartSystem) Hold(ctx context.Context) error {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.status.StarterControl = false // Starter is holding
+	return nil
+}
+
+func (as *AutoStartSystem) Release(ctx context.Context) error {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.status.StarterControl = true // Starter releases control
+	return nil
+}
+
+func (as *AutoStartSystem) UpdateStagingState(lane int, state interfaces.LaneStagingState) error {
+	staged := state.Staged || state.DeepStaged
+	return as.UpdateVehicleStaging(lane, state.PreStaged, staged, state.Position)
+}
+
+func (as *AutoStartSystem) IsActivationReady() bool {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+	return as.status.State == StateActivated && as.status.StarterControl && as.GetThreeLightCount() >= 3
+}
+
+func (as *AutoStartSystem) GetThreeLightCount() int {
+	count := 0
+	for _, staging := range as.status.VehicleStaging {
+		if staging.PreStaged {
+			count++
+		}
+		if staging.Staged {
+			count++
+		}
+	}
+	return count
+}
+
+func (as *AutoStartSystem) SetStarterOverride(enabled bool) error {
+	as.mu.Lock()
+	defer as.mu.Unlock()
+	as.status.StarterControl = !enabled // Invert logic: override means no starter control
+	return nil
+}
+
+func (as *AutoStartSystem) IsStarterOverrideActive() bool {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+	return !as.status.StarterControl
+}
+
+func (as *AutoStartSystem) IsArmed() bool {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+	return as.running // Armed if the system is running
+}
+
+func (as *AutoStartSystem) IsHeld() bool {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+	return !as.status.StarterControl
+}
+
+func (as *AutoStartSystem) GetActivationStatus() string {
+	as.mu.RLock()
+	defer as.mu.RUnlock()
+	
+	if !as.status.StarterControl {
+		return "held"
+	}
+	
+	switch as.status.State {
+	case StateIdle:
+		return "idle"
+	case StateMonitoring:
+		return "armed"
+	case StateActivated:
+		return "ready_to_activate"
+	case StateStaging:
+		return "staging"
+	case StateTriggered:
+		return "triggered"
+	case StateFault:
+		return "fault"
+	default:
+		return "unknown"
+	}
 }
