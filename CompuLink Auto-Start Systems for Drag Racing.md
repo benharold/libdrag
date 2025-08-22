@@ -12,7 +12,7 @@ The guard beam system provides additional safety, positioned **13 3/8 inches dow
 
 When auto-start conditions are met, the system doesn't immediately begin the tree sequence - instead, it **arms the countdown timer while monitoring final staging completion**. The actual Christmas tree activation occurs after both vehicles are fully staged, with built-in timing safeguards to ensure fair starts.
 
-**Professional tree timing** activates all three amber lights simultaneously, followed by the green light after exactly 0.400 seconds. **Sportsman tree timing** flashes the three amber lights consecutively at 0.500-second intervals, with the green light appearing 0.500 seconds after the final amber.
+**Professional tree timing** activates all three amber lights simultaneously, with two variants: the 0.400 second pro tree used in Top Fuel, Funny Car, Pro Stock, and Super Gas/Super Comp classes where the green light appears exactly 0.400 seconds after the ambers; and the 0.500 second pro tree used in Super Street and certain sportsman classes where the green appears 0.500 seconds after the ambers. **Sportsman tree timing** (also called "Full Tree") flashes the three amber lights consecutively at 0.500-second intervals, with the green light appearing 0.500 seconds after the final amber.
 
 The system incorporates sophisticated timing logic with a **minimum staging duration of 0.6 seconds** for sportsman classes and 0.5 seconds for professional classes after both cars are fully staged. A **random delay window of 0.6 to 1.4 seconds** (0.6 to 1.1 seconds for Pro Tree) includes an additional 0.2-second random variation to prevent tree anticipation and electronic cheating devices.
 
@@ -44,7 +44,7 @@ The system features **dual redundancy** throughout its architecture, including b
 
 **NHRA and IHRA specifications** establish CompuLink auto-start as the professional standard, with CompuLink serving as exclusive timing provider for NHRA national events since 1984. Professional implementation requires certified installation meeting sanctioning body specifications, with track-specific wiring and calibration standards ensuring consistent operation across venues.
 
-**Best practices by racing class** include 7-second timeouts for professional classes using 0.400-second pro trees, 10-15 second timeouts for bracket racing with 0.500-second sportsman trees, and extended 15-20 second timeouts for Junior Dragster classes with additional safety provisions. Auto-start is typically enabled during eliminations while disabled for test-and-tune sessions to allow learning opportunities.
+**Best practices by racing class** include 7-second timeouts for professional classes using 0.400-second pro trees, 10-second timeouts for Super Street using 0.500-second pro trees, 10-15 second timeouts for bracket racing with 0.500-second sportsman trees, and extended 15-20 second timeouts for Junior Dragster classes with additional safety provisions. Auto-start is typically enabled during eliminations while disabled for test-and-tune sessions to allow learning opportunities.
 
 The technology continues evolving with **TruSTART systems** for bracket racing that determine winners by smallest red-light margin in double-red situations, LED compensation systems for specific racing classes, and anti-cheating measures that maintain competitive integrity. Regular system updates and professional training ensure consistent implementation across the drag racing community.
 
